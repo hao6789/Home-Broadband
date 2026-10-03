@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# fanout 安装脚本：装二进制、装服务（systemd 或 OpenRC）、开机自启。
+# home-broadband 安装脚本：装二进制、装服务（systemd 或 OpenRC）、开机自启。
 #
 # Alpine 默认不带 bash，先装再跑：
 #   apk add bash && bash <(curl -fsSL .../install.sh)
@@ -9,8 +9,8 @@ set -euo pipefail
 # 记下用户是否显式给了 WEB_PORT：重装时只有显式指定才覆盖已保存的端口
 WEB_PORT_EXPLICIT="${WEB_PORT:+1}"
 WEB_PORT="${WEB_PORT:-8899}"
-WORK_DIR="${WORK_DIR:-/var/lib/fanout}"
-BIN=/usr/local/bin/fanout
+WORK_DIR="${WORK_DIR:-/var/lib/home-broadband}"
+BIN=/usr/local/bin/home-broadband
 
 if [[ $EUID -ne 0 ]]; then
   echo "需要 root 权限（要创建 netns 和改 iptables）" >&2
@@ -48,50 +48,50 @@ svc_install() {
     # 端口不写进服务文件：它由 ${WORK_DIR}/settings.json 决定（见 seed_settings），
     # 两处都写会互相拽回旧值——界面改完重启失效，或 f 改完被配置覆盖。
     # 老版本模板里可能还带 -web，一并去掉。
-    sed "s#-web [0-9]* ##; s#-dir /var/lib/fanout#-dir ${WORK_DIR}#" fanout.service \
-      > /etc/systemd/system/fanout.service
+    sed "s#-web [0-9]* ##; s#-dir /var/lib/home-broadband#-dir ${WORK_DIR}#" home-broadband.service \
+      > /etc/systemd/system/home-broadband.service
     systemctl daemon-reload
   else
     # OpenRC 没有 systemd 那套单元文件，直接写 init script。
     # supervise-daemon 负责守护与重启，等价于 Restart=on-failure。
-    cat > /etc/init.d/fanout <<INITEOF
+    cat > /etc/init.d/home-broadband <<INITEOF
 #!/sbin/openrc-run
-name="fanout"
-description="fanout - VPN Gate 出口扇出网关"
+name="home-broadband"
+description="home-broadband - VPN Gate 出口扇出网关"
 command="${BIN}"
 command_args="-dir ${WORK_DIR}"
 command_background=true
-pidfile="/run/fanout.pid"
-output_log="/var/log/fanout.log"
-error_log="/var/log/fanout.log"
+pidfile="/run/home-broadband.pid"
+output_log="/var/log/home-broadband.log"
+error_log="/var/log/home-broadband.log"
 respawn_delay=5
 respawn_max=0
 supervisor=supervise-daemon
 depend() { need net; after firewall; }
 INITEOF
-    chmod +x /etc/init.d/fanout
+    chmod +x /etc/init.d/home-broadband
   fi
 }
 
 svc_enable_start() {
   if [[ "$INIT_SYS" == systemd ]]; then
-    systemctl enable --now fanout
+    systemctl enable --now home-broadband
   else
-    rc-update add fanout default >/dev/null 2>&1 || true
-    rc-service fanout restart
+    rc-update add home-broadband default >/dev/null 2>&1 || true
+    rc-service home-broadband restart
   fi
 }
 
 svc_is_active() {
   if [[ "$INIT_SYS" == systemd ]]; then
-    systemctl is-active --quiet fanout
+    systemctl is-active --quiet home-broadband
   else
-    rc-service fanout status >/dev/null 2>&1
+    rc-service home-broadband status >/dev/null 2>&1
   fi
 }
 
 svc_logs_hint() {
-  [[ "$INIT_SYS" == systemd ]] && echo "journalctl -u fanout -n 30" || echo "cat /var/log/fanout.log"
+  [[ "$INIT_SYS" == systemd ]] && echo "journalctl -u home-broadband -n 30" || echo "cat /var/log/home-broadband.log"
 }
 
 echo "[1/6] 检查依赖"
@@ -174,21 +174,21 @@ if [[ -f main.go ]] && command -v go >/dev/null; then
 else
   echo "      下载预编译版本 (${GOARCH})"
   TMP=$(mktemp -d)
-  URL="https://github.com/${REPO}/releases/latest/download/fanout-linux-${GOARCH}.tar.gz"
+  URL="https://github.com/${REPO}/releases/latest/download/home-broadband-linux-${GOARCH}.tar.gz"
   if ! curl -fsSL "$URL" -o "$TMP/f.tar.gz"; then
     echo "      下载失败: $URL" >&2
     echo "      也可以 clone 仓库后在源码目录运行本脚本" >&2
     exit 1
   fi
   tar xzf "$TMP/f.tar.gz" -C "$TMP"
-  install -m 755 "$TMP/fanout" "$BIN"
-  [[ -f fanout.service ]] || cp "$TMP/fanout.service" .
+  install -m 755 "$TMP/home-broadband" "$BIN"
+  [[ -f home-broadband.service ]] || cp "$TMP/home-broadband.service" .
   [[ -f "$TMP/f.sh" ]] && install -m 755 "$TMP/f.sh" /usr/local/bin/f
   rm -rf "$TMP"
 fi
 
 echo "[3/6] 准备 Xray"
-# 没有现成面板接管时 fanout 自己跑 Xray，需要一份二进制。
+# 没有现成面板接管时 home-broadband 自己跑 Xray，需要一份二进制。
 # 装到 WORK_DIR/bin 下而不是 /usr/local/bin，避免和机器上别人的 xray 抢版本。
 mkdir -p "${WORK_DIR}/bin"
 if command -v /usr/local/x-ui/x-ui >/dev/null 2>&1 || [[ -x /usr/bin/x-ui ]]; then
@@ -231,7 +231,7 @@ echo "[4/6] 放行转发"
 sysctl -qw net.ipv4.ip_forward=1
 grep -q '^net.ipv4.ip_forward=1' /etc/sysctl.conf 2>/dev/null \
   || echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
-# FORWARD 链常有兜底 REJECT，fanout 用的网段要插到最前面
+# FORWARD 链常有兜底 REJECT，home-broadband 用的网段要插到最前面
 if ! iptables -C FORWARD -s 10.99.0.0/16 -j ACCEPT 2>/dev/null; then
   iptables -I FORWARD 1 -s 10.99.0.0/16 -j ACCEPT
 fi
@@ -263,7 +263,7 @@ svc_is_active && echo "      服务运行中（${INIT_SYS}）" || {
   exit 1
 }
 
-# 口令与访问路径由 fanout 首次启动时生成，等它写出来
+# 口令与访问路径由 home-broadband 首次启动时生成，等它写出来
 for _ in $(seq 1 10); do
   [[ -s "${WORK_DIR}/password" && -s "${WORK_DIR}/basepath" ]] && break
   sleep 1

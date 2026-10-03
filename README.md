@@ -1,4 +1,4 @@
-# fanout
+# home-broadband
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -6,7 +6,7 @@
 再给每个出口挂一个节点链接，客户端连哪个端口就从哪个国家出去。
 
 节点链接有三种管法：同机装了 3x-ui 或 xray-cf-lite 就接管它们的入站，
-都没装则 fanout 自己跑 Xray，建站、改站、发链接都在同一个界面里完成。
+都没装则 home-broadband 自己跑 Xray，建站、改站、发链接都在同一个界面里完成。
 
 ![主界面](https://images.joeyblog.net/2026/7/27/fanout-dashboard.png)
 
@@ -39,7 +39,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/
 
 依赖（openvpn / curl / openssl / iproute / iptables）会按发行版自动装，
 apt、dnf、yum、pacman、apk、zypper 都认。没装 3x-ui 时还会顺带下载一份
-Xray 到 `/var/lib/fanout/bin/`，装了则跳过，入站交给面板管。
+Xray 到 `/var/lib/home-broadband/bin/`，装了则跳过，入站交给面板管。
 
 服务用 systemd 或 OpenRC 都能装，装完自动开机自启。
 
@@ -50,7 +50,7 @@ apk add bash curl
 bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/install.sh)
 ```
 
-另外 fanout 要在 netns 里跑 openvpn，**宿主必须放开 `/dev/net/tun`**。
+另外 home-broadband 要在 netns 里跑 openvpn，**宿主必须放开 `/dev/net/tun`**。
 不少 LXC 小鸡没给这个权限，`ls /dev/net/tun` 不存在且 `mknod` 报
 Operation not permitted 的话，这台机器用不了，跟发行版无关。
 
@@ -65,14 +65,14 @@ Operation not permitted 的话，这台机器用不了，跟发行版无关。
 访问口令  f81120ac328d11c11b
 ```
 
-路径和口令都是随机生成的，分别存在 `/var/lib/fanout/basepath` 和
-`/var/lib/fanout/password`。路径不对一律返回 404，扫端口的看不到这里跑着什么。
+路径和口令都是随机生成的，分别存在 `/var/lib/home-broadband/basepath` 和
+`/var/lib/home-broadband/password`。路径不对一律返回 404，扫端口的看不到这里跑着什么。
 
 ## 使用
 
 界面以**出口**为单位：一行就是一条隧道加上挂在它上面的节点链接。
 
-点「新建出口」，选地区和数量，再选一个已有节点作模板，提交后 fanout 会并行
+点「新建出口」，选地区和数量，再选一个已有节点作模板，提交后 home-broadband 会并行
 拉起隧道、为每个出口复制一份节点链接并绑好，进度按目标逐条回报。原来要手点
 五步跨两栏的事，现在一次点击十几秒完成。
 
@@ -85,7 +85,7 @@ Operation not permitted 的话，这台机器用不了，跟发行版无关。
 或者停掉这个出口。换节点会避开这条出口之前用过的，连点几次每次都是新 IP。
 
 出口和节点的名字自动起成 `🇯🇵 日本 243`（国旗 + 国家 + 出口 IP 末段）。
-自己改过的名字不会被覆盖——换节点时只重写 fanout 自己起的那些。
+自己改过的名字不会被覆盖——换节点时只重写 home-broadband 自己起的那些。
 
 点节点名进详情，可以改端口、备注、启停，管理客户端，以及改绑到别的出口：
 
@@ -122,7 +122,7 @@ VPN Gate 的清单里混着一批它自己的机房服务器（`public-vpn-*` �
 ### 节点链接从哪来
 
 同机装了 3x-ui 就直接接管面板里的入站，面板端口、路径、API token 全自动探测，
-开了 SSL 也能识别。没装 3x-ui 时 fanout 自己跑一个 Xray，界面上多一个「新建节点」
+开了 SSL 也能识别。没装 3x-ui 时 home-broadband 自己跑一个 Xray，界面上多一个「新建节点」
 按钮，可以选协议（VLESS / VMess / Trojan）、传输（TCP / WebSocket / gRPC /
 HTTPUpgrade / XHTTP）和安全层（无 / TLS / REALITY）。
 
@@ -135,9 +135,9 @@ REALITY 的密钥对和 shortId 自动生成；TLS 不填证书就生成自签�
 用起来没有区别。
 
 装了 [xray-cf-lite](https://github.com/byJoey/xray-cf-lite) 的机器会自动接管它生成的
-三个节点。这个模式下节点归 xray-cf-lite 管，fanout 只负责给每个节点指定走哪条出口，
+三个节点。这个模式下节点归 xray-cf-lite 管，home-broadband 只负责给每个节点指定走哪条出口，
 所以界面上不提供新建、删除和改节点的入口——想改端口或 UUID 去 xray-cf-lite 那边改。
-两边共用同一份 Xray 配置，fanout 只往里加自己前缀的出站和分流规则，互不覆盖。
+两边共用同一份 Xray 配置，home-broadband 只往里加自己前缀的出站和分流规则，互不覆盖。
 
 后端在设置面板里可以随时切换，本机没装的会置灰并说明原因；也可以用
 `-panel 3x-ui` / `-panel native` / `-panel xray-cf-lite` 启动参数固定。
@@ -149,7 +149,7 @@ REALITY 的密钥对和 shortId 自动生成；TLS 不填证书就生成自签�
 
 ```
   状态      运行中
-  版本      fanout v0.1.1
+  版本      home-broadband v0.1.1
   开机自启  enabled
 
   管理地址  http://1.2.3.4:8899/gwPuWHvaNr/
@@ -174,7 +174,7 @@ f update     # 更新到最新版
 f uninstall  # 卸载
 ```
 
-隧道状态存在 `/var/lib/fanout/state.json`，重启后自动恢复，端口保持不变。
+隧道状态存在 `/var/lib/home-broadband/state.json`，重启后自动恢复，端口保持不变。
 
 健康检查每 10 秒跑一次，比对出口 IP 是否还是建立隧道时那个——openvpn 挂掉后
 netns 仍能经母机 NAT 出网，只看通不通会漏判。连续两次不符就自动换节点重连，
@@ -183,7 +183,7 @@ netns 仍能经母机 NAT 出网，只看通不通会漏判。连续两次不符
 ## 已知限制
 
 - SOCKS5 支持 CONNECT 和 UDP ASSOCIATE，DNS/QUIC 这类 UDP 也走隧道
-  （感谢 [@zsawi](https://github.com/zsawi) 的 [#22](https://github.com/byJoey/fanout/pull/22)）。
+  （感谢 [@zsawi](https://github.com/zsawi) 的 [#22](https://github.com/byJoey/home-broadband/pull/22)）。
   域名仍在本机解析。
 - VPN Gate 是志愿者节点，有相当比例已下线或满员（`AUTH_FAILED`）。
   启动时连不上会自动顺着同地区候选往下试，最多 6 个。

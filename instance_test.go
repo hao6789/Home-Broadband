@@ -161,14 +161,14 @@ func TestNetBaseFileCorrupted(t *testing.T) {
 }
 
 func TestShortHashStable(t *testing.T) {
-	a := shortHash("/opt/fanout-demo")
-	if a != shortHash("/opt/fanout-demo") {
+	a := shortHash("/opt/home-broadband-demo")
+	if a != shortHash("/opt/home-broadband-demo") {
 		t.Fatal("同一个目录每次要算出同一个标识")
 	}
 	if len(a) != 4 {
 		t.Fatalf("标识应是 4 位，实际 %q", a)
 	}
-	if a == shortHash("/opt/fanout-other") {
+	if a == shortHash("/opt/home-broadband-other") {
 		t.Fatal("不同目录不该算出同一个标识")
 	}
 }

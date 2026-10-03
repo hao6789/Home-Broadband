@@ -5,7 +5,7 @@ import (
 	"os"
 )
 
-// externalXrayConfigs 是其它工具装的系统级 Xray 配置，fanout 自己不写，
+// externalXrayConfigs 是其它工具装的系统级 Xray 配置，home-broadband 自己不写，
 // 但要避开它们占用的入站端口，免得两边端口撞车、Xray 起不来。
 //
 // 目前覆盖 byJoey/xray-cf-lite：它把 Xray 装成系统服务，
@@ -17,7 +17,7 @@ var externalXrayConfigs = []string{
 // externalUsedPorts 读取外部 Xray 配置里 inbounds 的监听端口。
 //
 // 只读不写，任何一个文件不存在或解析失败都静默跳过，
-// 保证 fanout 在没有这些工具的机器上行为完全不变。
+// 保证 home-broadband 在没有这些工具的机器上行为完全不变。
 func externalUsedPorts() map[int]bool {
 	used := map[int]bool{}
 	for _, path := range externalXrayConfigs {

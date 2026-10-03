@@ -138,7 +138,7 @@ func (a *Auth) valid(tok string) bool {
 	return ok && time.Now().Before(exp)
 }
 
-const sessionCookie = "fanout_session"
+const sessionCookie = "home-broadband_session"
 
 // Wrap 保护一个 handler，未登录时 API 返回 401、页面跳登录。
 func (a *Auth) Wrap(next http.Handler) http.Handler {
@@ -254,7 +254,7 @@ const loginHTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>fanout</title>
+<title>home-broadband</title>
 <style>
 body{margin:0;height:100vh;display:flex;flex-direction:column;gap:16px;
   align-items:center;justify-content:center;
@@ -277,7 +277,7 @@ button{width:100%;margin-top:14px;background:#4a9eda;border:0;color:#0b0e12;
 </head>
 <body>
 <form id="f">
-  <h1>fanout</h1>
+  <h1>home-broadband</h1>
   <label for="pw">访问口令</label>
   <input type="password" id="pw" autofocus autocomplete="current-password">
   <button type="submit">进入</button>

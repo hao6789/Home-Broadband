@@ -106,7 +106,7 @@ func countryLabel(code, fallback string) string {
 // nodeLabel 是 countryLabel 的取节点信息版本。
 func nodeLabel(n Node) string { return countryLabel(n.CountryCode, n.Country) }
 
-// isGeneratedLabel 判断一个备注是不是 fanout 自己起的名字。
+// isGeneratedLabel 判断一个备注是不是 home-broadband 自己起的名字。
 //
 // 判据是开头那个国旗 emoji。用户手工起的备注极少这么开头，
 // 所以这条足够把"自动名"和"我自己改的名"分开——换节点时只改前者，

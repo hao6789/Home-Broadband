@@ -12,7 +12,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// 同一台机器上跑两份 fanout 会互相把隧道拆掉。
+// 同一台机器上跑两份 home-broadband 会互相把隧道拆掉。
 //
 // netns 名、veth 名、子网原来都只按槽位编号生成（fo1 / fov1 / 10.99.1.0/30），
 // 两个实例必然重名；而 setupNetns 开头就调 teardownNetns()，
@@ -25,7 +25,7 @@ import (
 
 const (
 	// defaultWorkDir 是 install.sh 用的目录，绝大多数机器都是它。
-	defaultWorkDir = "/var/lib/fanout"
+	defaultWorkDir = "/var/lib/home-broadband"
 	// defaultNetBase 是子网的第二段，历史上固定 99。
 	defaultNetBase = 99
 	// netBaseMin/netBaseMax 是给非默认实例留的段，避开 99。
@@ -113,7 +113,7 @@ func pickNetBase(abs string) (int, error) {
 
 // hostUsedNetBases 收集母机上已经配出去的 10.X 段。
 //
-// 这既能避开另一个 fanout 实例，也能避开机器上本来就有的 10.x 网络
+// 这既能避开另一个 home-broadband 实例，也能避开机器上本来就有的 10.x 网络
 // （容器网桥、别的 VPN），免得配上去把人家的路由顶掉。
 func hostUsedNetBases() map[int]bool {
 	used := map[int]bool{defaultNetBase: true}
@@ -143,7 +143,7 @@ func hostUsedNetBases() map[int]bool {
 	return used
 }
 
-// lockWorkDir 保证一个工作目录同时只有一个 fanout 在用。
+// lockWorkDir 保证一个工作目录同时只有一个 home-broadband 在用。
 //
 // 两份共用同一个目录比抢 netns 更糟：state.json 会互相覆盖，
 // 隧道记录直接丢。锁是进程级的，进程没了内核自动释放，不会留下死锁文件。
@@ -155,7 +155,7 @@ func lockWorkDir(dir string) (func(), error) {
 	}
 	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
 		f.Close()
-		return nil, fmt.Errorf("另一个 fanout 正在用工作目录 %s；"+
+		return nil, fmt.Errorf("另一个 home-broadband 正在用工作目录 %s；"+
 			"要同时跑第二个实例，给它一个不同的 -dir", dir)
 	}
 	return func() {

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# fanout 管理菜单
+# home-broadband 管理菜单
 set -uo pipefail
 
-WORK_DIR=/var/lib/fanout
-SERVICE=fanout
-BIN=/usr/local/bin/fanout
+WORK_DIR=/var/lib/home-broadband
+SERVICE=home-broadband
+BIN=/usr/local/bin/home-broadband
 REPO="${REPO:-hao6789/Home-Broadband}"
 
 G='\033[0;32m'; R='\033[0;31m'; Y='\033[0;33m'; B='\033[0;36m'; D='\033[2m'; N='\033[0m'
@@ -218,7 +218,7 @@ ipv6_state() {
 }
 
 toggle_ipv6() {
-  local conf=/etc/sysctl.d/99-fanout-ipv6.conf
+  local conf=/etc/sysctl.d/99-home-broadband-ipv6.conf
   echo
   if [[ $(ipv6_state) == disabled ]]; then
     read -rp "  当前已禁用 IPv6，要重新启用吗？[y/N]: " yes
@@ -285,13 +285,13 @@ do_update() {
   echo -e "\n  当前 $("$BIN" -version 2>/dev/null || echo '-')"
   tmp=$(mktemp -d)
   echo "  正在下载最新版..."
-  if ! curl -fsSL "https://github.com/${REPO}/releases/latest/download/fanout-linux-${goarch}.tar.gz" \
+  if ! curl -fsSL "https://github.com/${REPO}/releases/latest/download/home-broadband-linux-${goarch}.tar.gz" \
        -o "$tmp/f.tar.gz"; then
     echo -e "  ${R}下载失败${N}"; rm -rf "$tmp"; return
   fi
   tar xzf "$tmp/f.tar.gz" -C "$tmp"
   svc_stop
-  install -m 755 "$tmp/fanout" "$BIN"
+  install -m 755 "$tmp/home-broadband" "$BIN"
   migrate_port_to_settings
   svc_start
   rm -rf "$tmp"
@@ -323,7 +323,7 @@ do_uninstall() {
 menu() {
   while true; do
     clear
-    echo -e "${B}  fanout${N}  ${D}VPN Gate 出口扇出网关${N}"
+    echo -e "${B}  home-broadband${N}  ${D}VPN Gate 出口扇出网关${N}"
     show_info
     echo -e "${D}  ─────────────────────────────${N}"
     echo "   1) 启动          2) 停止"
