@@ -1,8 +1,8 @@
-// fanout 拉 VPN Gate 节点列表的反代兜底。只做这一件事。
+// home-broadband 拉 VPN Gate 节点列表的反代兜底。只做这一件事。
 //
 //   GET /vpngate  -> https://www.vpngate.net/api/iphone/
 //
-// 要带 X-Fanout-Key（或 ?k=）匹配 ACCESS_KEY，不带就一律 404。
+// 要带 X-Home-Broadband-Key（或 ?k=）匹配 ACCESS_KEY，不带就一律 404。
 // 这层只挡公网无差别扫描和被当免费代理白嫖，挡不住读源码的人。
 
 const UPSTREAM = 'https://www.vpngate.net/api/iphone/';
@@ -34,7 +34,7 @@ export default {
       return notFound();
     }
 
-    const key = request.headers.get('x-fanout-key') || url.searchParams.get('k') || '';
+    const key = request.headers.get('x-home-broadband-key') || url.searchParams.get('k') || '';
     if (!keyMatches(key, env.ACCESS_KEY || '')) {
       return notFound();
     }
@@ -45,7 +45,7 @@ export default {
       const v = request.headers.get(k);
       if (v) headers.set(k, v);
     }
-    if (!headers.has('user-agent')) headers.set('user-agent', 'fanout-proxy');
+    if (!headers.has('user-agent')) headers.set('user-agent', 'home-broadband-proxy');
 
     let resp;
     try {

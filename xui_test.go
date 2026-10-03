@@ -7,19 +7,19 @@ import (
 	"testing"
 )
 
-// 换节点改名：只动 fanout 自己起的名字。
+// 换节点改名：只动 home-broadband 自己起的名字。
 //
 // 旧实现按 "-" 切段替换末两段，既会切坏用户自己的备注，
-// 又会在"拿复制品当模板再复制"时叠成 fanout-JP-243-VN-165 这种。
+// 又会在"拿复制品当模板再复制"时叠成 home-broadband-JP-243-VN-165 这种。
 func TestRenameExitLabelOnlyTouchesGenerated(t *testing.T) {
 	cases := []struct{ remark, label, want string }{
-		// fanout 起的名字：整体换掉
+		// home-broadband 起的名字：整体换掉
 		{"🇰🇷 韩国 248", "🇯🇵 日本 132", "🇯🇵 日本 132"},
 		{"🇰🇷 韩国 248 2", "🇯🇵 日本 132", "🇯🇵 日本 132"},
 		// 用户自己起的：一律不碰，包括旧版本留下来的那些
 		{"线路A", "🇯🇵 日本 132", "线路A"},
 		{"线路A-KR-248", "🇯🇵 日本 132", "线路A-KR-248"},
-		{"fanout-JP-243-VN-165", "🇯🇵 日本 132", "fanout-JP-243-VN-165"},
+		{"home-broadband-JP-243-VN-165", "🇯🇵 日本 132", "home-broadband-JP-243-VN-165"},
 		{"无格式", "🇯🇵 日本 132", "无格式"},
 		{"", "🇯🇵 日本 132", ""},
 	}

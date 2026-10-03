@@ -28,7 +28,7 @@ type XUI struct {
 	Scheme   string `json:"scheme"`
 	token    string
 	client   *http.Client
-	// workDir 是 fanout 的工作目录，新建 TLS 入站时自签证书落在这里。
+	// workDir 是 home-broadband 的工作目录，新建 TLS 入站时自签证书落在这里。
 	workDir string
 }
 
@@ -59,7 +59,7 @@ var (
 	cachedTokenMu sync.Mutex
 )
 
-// xuiTokenFile 是 token 落盘的文件名，放在 fanout 工作目录下。
+// xuiTokenFile 是 token 落盘的文件名，放在 home-broadband 工作目录下。
 const xuiTokenFile = "xui-token"
 
 var (
@@ -430,9 +430,9 @@ func resolvedInboundTag(apiTag string, port int, streamSettings json.RawMessage)
 }
 
 // 出站与路由规则统一带这个前缀，便于识别与清理，不碰用户手工加的条目。
-const xuiTagPrefix = "fanout-"
+const xuiTagPrefix = "home-broadband-"
 
-// tunnelTag 用节点主机名而非槽位号做标识：槽位在 fanout 重启后会重新分配，
+// tunnelTag 用节点主机名而非槽位号做标识：槽位在 home-broadband 重启后会重新分配，
 // 用它做 tag 会让已有的入站绑定悄悄串到别的节点上。
 func tunnelTag(t *Tunnel) string {
 	return xuiTagPrefix + sanitizeTag(t.Node.HostName)
@@ -506,7 +506,7 @@ func toStringSlice(v any) []string {
 
 // Bind 把某个入站的流量导向指定隧道。slot 传 0 表示解绑，恢复直连。
 //
-// 只动 fanout- 前缀的出站与规则，用户手工配置的条目原样保留。
+// 只动 home-broadband- 前缀的出站与规则，用户手工配置的条目原样保留。
 func (x *XUI) Bind(inboundTag string, hostname string, tunnels []*Tunnel) error {
 	var target *Tunnel
 	if hostname != "" {
@@ -552,7 +552,7 @@ func (x *XUI) Bind(inboundTag string, hostname string, tunnels []*Tunnel) error 
 	}
 	rules, _ := routing["rules"].([]any)
 
-	// 先摘掉这个入站现有的 fanout 绑定，再按需要重新加一条
+	// 先摘掉这个入站现有的 home-broadband 绑定，再按需要重新加一条
 	cleaned := make([]any, 0, len(rules)+1)
 	for _, r := range rules {
 		m, ok := r.(map[string]any)
@@ -591,7 +591,7 @@ func (x *XUI) Bind(inboundTag string, hostname string, tunnels []*Tunnel) error 
 	return x.saveXray(setting, testURL)
 }
 
-// syncOutbounds 让 fanout- 出站与当前已连通的隧道保持一致。
+// syncOutbounds 让 home-broadband- 出站与当前已连通的隧道保持一致。
 func (x *XUI) syncOutbounds(setting map[string]any, tunnels []*Tunnel) {
 	outbounds, _ := setting["outbounds"].([]any)
 	kept := make([]any, 0, len(outbounds))
@@ -983,7 +983,7 @@ func clientEmails(tpl map[string]any) ([]string, error) {
 	return out, nil
 }
 
-// InboundDetail 是某个入站的完整信息，用于在 fanout 里直接查看而不必跳到面板。
+// InboundDetail 是某个入站的完整信息，用于在 home-broadband 里直接查看而不必跳到面板。
 type InboundDetail struct {
 	Inbound
 	Clients []ClientInfo `json:"clients"`
@@ -1132,7 +1132,7 @@ func (x *XUI) InboundLinks(ids []int, publicHost string) ([]string, error) {
 	return out, nil
 }
 
-// DeleteInbounds 删除入站，并顺手清掉指向它们的 fanout 路由规则。
+// DeleteInbounds 删除入站，并顺手清掉指向它们的 home-broadband 路由规则。
 // 面板的 del 只动 inbounds，残留的规则会让后续绑定读到不存在的入站标签。
 func (x *XUI) DeleteInbounds(ids []int, tunnels []*Tunnel) error {
 	for _, id := range ids {
@@ -1217,7 +1217,7 @@ func (x *XUI) Rebind(oldHost string, target *Tunnel, tunnels []*Tunnel) error {
 
 // renameExitLabel 在换节点之后把别名改成新出口的。
 //
-// 只改 fanout 自己起的名字（开头是国旗那种）。以前是按 "-" 切段替换末两段，
+// 只改 home-broadband 自己起的名字（开头是国旗那种）。以前是按 "-" 切段替换末两段，
 // 既会把用户自己的备注切坏，又会在反复复制时叠成 "a-JP-243-VN-165" 这种。
 // 现在整体替换，用户手工改过的名字一律不碰。
 func renameExitLabel(remark, newLabel string) string {
@@ -1508,7 +1508,7 @@ func isAllDigits(s string) bool {
 // 同步过，这里再写一次只会多重启一遍面板的 Xray，把已有连接打断。
 func (x *XUI) OnTunnelsChanged(tunnels []*Tunnel) error { return nil }
 
-// Close 对 3x-ui 是空操作：Xray 由面板自己管，不该被 fanout 停掉。
+// Close 对 3x-ui 是空操作：Xray 由面板自己管，不该被 home-broadband 停掉。
 func (x *XUI) Close() {}
 
 // ResyncOutbound 重写某条隧道对应的出站配置。
@@ -1555,7 +1555,7 @@ func xuiRunning() bool {
 // CreateInbound 通过面板的 inbounds/add API 新建一个入站。
 //
 // 走 API 而不是直接写库：面板会自己维护 tag、客户端关联和分享链接，
-// fanout 插手它的 sqlite 只会两边打架。载荷字段照面板自己生成的入站抄，
+// home-broadband 插手它的 sqlite 只会两边打架。载荷字段照面板自己生成的入站抄，
 // settings/streamSettings/sniffing 要编码成字符串，这是面板 API 的要求。
 func (x *XUI) CreateInbound(spec NewInboundSpec, tunnels []*Tunnel) (*CreatedInbound, error) {
 	used, err := x.usedPorts()
