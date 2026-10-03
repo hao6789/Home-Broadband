@@ -28,7 +28,7 @@ else
   exit 1
 fi
 
-# seed_settings 把端口落进 settings.json —— 程序、f 菜单、Web 界面都以它为准。
+# seed_settings 把端口落进 settings.json —— 程序、h 菜单、Web 界面都以它为准。
 #
 # 重装时不覆盖用户已经改过的端口：除非这次显式指定了 WEB_PORT，
 # 否则沿用原值，免得重装一次把人家改好的端口打回默认。
