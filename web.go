@@ -258,6 +258,14 @@ details.adv .f:last-child{margin-bottom:14px}
 label.f{display:block;margin-bottom:18px}
 label.f[hidden]{display:none}
 label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;font-weight:500}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.seg button{border:1px solid var(--border);background:var(--card2);border-radius:12px;
+  padding:10px 12px;display:flex;flex-direction:column;gap:4px;align-items:flex-start;
+  text-align:left;box-shadow:none;font-weight:500}
+.seg button b{font-size:13px}
+.seg button em{font-style:normal;font-size:11px;color:var(--dim)}
+.seg button.sel{border-color:var(--accent);background:rgba(52,211,153,.08)}
+.seg button.sel b{color:var(--accent)}
 .regions{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;max-height:230px;overflow:auto}
 .rg{border:1px solid var(--border);background:var(--card2);border-radius:10px;padding:9px 12px;cursor:pointer;
   text-align:left;display:block;width:100%;box-shadow:none}
@@ -487,8 +495,15 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
     <div class="body">
       <label class="f">
         <span>地区</span>
-        <input type="search" id="rgfilter" placeholder="筛选地区">
-        <div class="regions" id="regions" style="margin-top:8px"></div>
+        <div class="seg" id="rgmode">
+          <button data-rgmode="auto" class="sel"><b>不限地区</b><em>按速度自动挑</em></button>
+          <button data-rgmode="each"><b>每个国家</b><em>每个国家各来几个</em></button>
+          <button data-rgmode="one"><b>指定地区</b><em>只建这个国家的</em></button>
+        </div>
+        <div id="rgpick" hidden style="margin-top:10px">
+          <input type="search" id="rgfilter" placeholder="筛选地区">
+          <div class="regions" id="regions" style="margin-top:8px"></div>
+        </div>
       </label>
       <label class="f">
         <span id="countlabel">数量</span>
@@ -1019,6 +1034,14 @@ async function poll(){
 
 // ---- 新建向导 ----
 let regions = [], region = '', regionsLoaded = false;
+let rgmode = 'auto'; // auto=不限地区 each=每个国家 one=指定地区
+// 模式换算成给后端的 region 参数：''=不限 '*'=每个国家，否则是国家码
+function effRegion(){ return rgmode === 'each' ? '*' : rgmode === 'one' ? region : ''; }
+function syncRgMode(){
+  document.querySelectorAll('#rgmode [data-rgmode]').forEach(b =>
+    b.classList.toggle('sel', b.dataset.rgmode === rgmode));
+  $('#rgpick').hidden = rgmode !== 'one';
+}
 
 function openModal(id){ $('#' + id).classList.add('open'); }
 function closeModal(id){ $('#' + id).classList.remove('open'); }
@@ -1039,13 +1062,9 @@ function renderRegions(){
   const kw = $('#rgfilter').value.trim().toLowerCase();
   const list = regions.filter(r => !kw
     || r.code.toLowerCase().includes(kw) || r.name.toLowerCase().includes(kw));
-  $('#regions').innerHTML = ['<button class="rg' + (region === '' ? ' sel' : '')
-      + '" data-rg=""><b>不限地区</b><em>速度优先</em></button>',
-    '<button class="rg' + (region === '*' ? ' sel' : '')
-      + '" data-rg="*"><b>每个国家</b><em>' + regions.length + ' 个国家各来几个</em></button>']
-    .concat(list.map(r => '<button class="rg' + (region === r.code ? ' sel' : '')
+  $('#regions').innerHTML = list.map(r => '<button class="rg' + (region === r.code ? ' sel' : '')
       + '" data-rg="' + esc(r.code) + '"><b>' + esc(r.name || r.code) + '</b>'
-      + '<em>' + r.available + ' 个空闲 · ' + r.best_speed_mbps.toFixed(0) + ' Mbps</em></button>'))
+      + '<em>' + r.available + ' 个空闲 · ' + r.best_speed_mbps.toFixed(0) + ' Mbps</em></button>')
     .join('');
   updateAvail();
 }
@@ -1060,9 +1079,10 @@ function availOf(code){
 function updateAvail(){
   const want = Number($('#count').value) || 0;
   const hint = $('#availhint');
+  const er = effRegion();
   // 选了"每个国家"时，数量的意思是每国几个，提示要给出总条数
-  $('#countlabel').textContent = region === '*' ? '每个国家几个' : '数量';
-  if(region === '*'){
+  $('#countlabel').textContent = er === '*' ? '每个国家几个' : '数量';
+  if(er === '*'){
     const n = regions.length;
     const total = Math.min(n * want, availOf('*'));
     hint.className = 'hint';
@@ -1072,7 +1092,7 @@ function updateAvail(){
     $('#go').disabled = !n || !want;
     return;
   }
-  const avail = availOf(region);
+  const avail = availOf(er);
   hint.textContent = avail ? '可用 ' + avail + ' 个节点' : '这个地区没有空闲节点';
   hint.className = 'hint' + (want > avail ? ' bad' : '');
   if(want > avail && avail) hint.textContent = '只剩 ' + avail + ' 个，将全部使用';
@@ -1117,13 +1137,24 @@ async function loadWizard(){
 document.addEventListener('click', e => {
   if(e.target.closest('#newexit') || e.target.closest('#newexit2')){
     openModal('wizard');
+    rgmode = 'auto'; region = '';
+    syncRgMode();
     if(!regionsLoaded) loadWizard(); else { renderRegions(); loadWizard(); }
+  }
+  const mg = e.target.closest('[data-rgmode]');
+  if(mg){
+    rgmode = mg.dataset.rgmode;
+    // "每个国家"是批量，默认每国 1 个，免得一点就开出几十条
+    if(rgmode === 'each' && Number($('#count').value) > 3) $('#count').value = '1';
+    // 切到"指定地区"还没选国家时，默认选中空闲最多的
+    if(rgmode === 'one' && !region && regions.length) region = regions[0].code;
+    syncRgMode();
+    renderRegions();
+    return;
   }
   const rg = e.target.closest('[data-rg]');
   if(rg){
     region = rg.dataset.rg;
-    // "每个国家"是批量，默认每国 1 个，免得一点就开出几十条
-    if(region === '*' && Number($('#count').value) > 3) $('#count').value = '1';
     renderRegions();
   }
 });
@@ -1220,12 +1251,13 @@ function step(d){
 $('#count').oninput = updateAvail;
 
 $('#go').onclick = async e => {
-  const want = Math.min(Number($('#count').value) || 1, availOf(region) || 1);
+  const er = effRegion();
+  const want = Math.min(Number($('#count').value) || 1, availOf(er) || 1);
   const tpl = $('#tpl').value || '0';
   e.target.disabled = true;
   try{
     await api('/api/provision?count=' + want
-      + (region === '*' ? '&every=1' : '&region=' + encodeURIComponent(region))
+      + (er === '*' ? '&every=1' : '&region=' + encodeURIComponent(er))
       + '&template=' + tpl, {method:'POST'});
     closeModal('wizard');
     poll();
