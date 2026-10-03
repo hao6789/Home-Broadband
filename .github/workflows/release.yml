@@ -52,10 +52,6 @@ jobs:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
@@ -63,25 +59,10 @@ jobs:
       - name: 生成校验和
         run: sha256sum home-broadband-linux-*.tar.gz > checksums.txt
 
-      - name: 写中文更新说明
-        run: |
-          cur="${GITHUB_REF_NAME}"
-          prev=$(git tag -l 'v*' --sort=-v:refname | grep -v "^${cur}$" | head -1)
-          {
-            echo "## 更新内容"
-            echo
-            if [ -n "$prev" ]; then
-              git log --pretty='- %s' "${prev}..${cur}"
-            else
-              git log --pretty='- %s' "$cur" | head -20
-            fi
-          } > release_notes.txt
-          cat release_notes.txt
-
       - uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          body_path: release_notes.txt
+          generate_release_notes: true
           files: |
             home-broadband-linux-*.tar.gz
             checksums.txt
