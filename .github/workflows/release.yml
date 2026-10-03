@@ -38,7 +38,7 @@ jobs:
       - name: 打包
         run: |
           tar czf "home-broadband-linux-${{ matrix.goarch }}.tar.gz" \
-            home-broadband install.sh f.sh home-broadband.service README.md
+            home-broadband install.sh h.sh home-broadband.service README.md
 
       - uses: actions/upload-artifact@v4
         with:
