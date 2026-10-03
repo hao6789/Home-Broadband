@@ -193,9 +193,12 @@ label.chk input{margin:0;accent-color:var(--accent);width:15px;height:15px}
   padding:14px 18px;margin-bottom:12px;box-shadow:var(--shadow)}
 .nghead{display:flex;align-items:center;gap:10px;margin-bottom:4px}
 .nghead b{font-size:14px}
-.orow{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border)}
-.orow:first-of-type{border-top:0}
-.orow select{width:220px;flex:none}
+.nrow{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--border)}
+.ninfo{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ninfo b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.nrow .acts{display:flex;align-items:center;gap:6px;flex:none}
+.bindlbl{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);flex:none}
+.bindlbl select{width:190px}
 .count{color:var(--dim);font-size:12px}
 
 /* ===== 任务 ===== */
@@ -841,7 +844,7 @@ function renderExits(){
   }).join('');
 }
 
-/* ---- 节点：按出口分组展示绑定的，未绑定的单独一组 ---- */
+/* ---- 节点：按出口分组，每行明示操作按钮 ---- */
 function renderNodes(){
   const box = $('#nodelist');
   const groups = view.exits.filter(e => (e.inbounds || []).length);
@@ -850,19 +853,35 @@ function renderNodes(){
   $('#ncount').textContent = total ? total + ' 个' : '';
   $('#navNcount').textContent = total || '';
 
-  let html = groups.map(e => {
-    const chips = e.inbounds.map(i =>
-      '<button class="chip" data-detail="' + i.id + '" title="'
-      + esc((i.remark || i.protocol) + ' · ' + i.protocol + ' :' + i.port) + '">'
-      + esc(i.remark || i.protocol) + '<span> :' + i.port + '</span></button>').join('');
-    return '<div class="card"><div class="nghead">'
-      + '<span class="dot ' + e.status + '" title="' + (STATUS[e.status] || e.status) + '"></span>'
-      + '<b class="mono">' + esc(e.exit_ip || e.host) + '</b>'
-      + '<span class="dim small">' + esc(e.country || e.region || '') + '</span>'
+  // 一行一个节点：名字 + 协议端口，右边是看得见的操作按钮，不再藏点击
+  const nodeRow = (i, bound) => {
+    const name = esc(i.remark || i.protocol);
+    const sub = esc(i.protocol) + ' · 端口 ' + i.port;
+    const bindCtl = bound
+      ? '<button data-unbind="' + esc(i.tag) + '" data-name="' + name + '">解绑</button>'
+      : '<label class="bindlbl">绑定到<select class="obind" data-tag="' + esc(i.tag) + '">'
+        + exitOptions('') + '</select></label>';
+    return '<div class="nrow">'
+      + '<div class="ninfo"><b>' + name + '</b><span class="dim small">' + sub + '</span></div>'
       + '<span class="spacer"></span>'
-      + '<span class="dim small">走这个出口</span>'
-      + '</div><div class="chips">' + chips + '</div></div>';
-  }).join('');
+      + '<div class="acts">'
+      + '<button data-detail="' + i.id + '">详情</button>'
+      + bindCtl
+      + '<button class="iconbtn danger" data-delone="' + i.id + '" data-name="'
+      +   name + ' :' + i.port + '" title="删除这个入站">' + ICON.trash + '</button>'
+      + '</div></div>';
+  };
+
+  let html = groups.map(e =>
+    '<div class="card"><div class="nghead">'
+    + '<span class="dot ' + e.status + '" title="' + (STATUS[e.status] || e.status) + '"></span>'
+    + '<b class="mono">' + esc(e.exit_ip || e.host) + '</b>'
+    + '<span class="dim small">' + esc(e.country || e.region || '') + '</span>'
+    + '<span class="count">' + e.inbounds.length + ' 个节点</span>'
+    + '</div>'
+    + e.inbounds.map(i => nodeRow(i, true)).join('')
+    + '</div>'
+  ).join('');
 
   if(unbound.length){
     const hasUp = view.exits.some(e => e.status === 'up');
@@ -870,19 +889,9 @@ function renderNodes(){
       + '<span class="count">' + unbound.length + ' 个，走直连</span>'
       + '<span class="spacer"></span>'
       + '<button data-delorphans="1">' + ICON.trash + '清理</button></div>'
-      + unbound.map(i =>
-          '<div class="orow">'
-          + '<button class="chip" data-detail="' + i.id + '" title="'
-          +   esc((i.remark || i.protocol) + ' · ' + i.protocol + ' :' + i.port) + '">'
-          +   esc(i.remark || i.protocol) + '<span> :' + i.port + '</span></button>'
-          + '<span class="spacer"></span>'
-          + (hasUp
-              ? '<select class="obind" data-tag="' + esc(i.tag) + '">' + exitOptions('') + '</select>'
-              : '<span class="dim small">先开一个出口</span>')
-          + '<button class="iconbtn danger" data-delone="' + i.id + '" data-name="'
-            + esc((i.remark || i.protocol) + ' :' + i.port) + '" title="删除这个入站">'
-            + ICON.trash + '</button>'
-          + '</div>').join('')
+      + (hasUp
+          ? unbound.map(i => nodeRow(i, false)).join('')
+          : '<div class="dim small" style="padding:8px 0">没有连通的出口，先去「出口」页开一个</div>')
       + '</div>';
   }
 
@@ -1162,6 +1171,18 @@ document.addEventListener('click', async e => {
   const job = e.target.closest('[data-job]');
   if(job){
     try{ await api('/api/jobs/dismiss?id=' + job.dataset.job, {method:'POST'}); }catch(err){}
+    poll();
+    return;
+  }
+  const unbind = e.target.closest('[data-unbind]');
+  if(unbind){
+    if(!confirm('把 ' + unbind.dataset.name + ' 从出口解绑？它会回到直连。')) return;
+    unbind.disabled = true;
+    try{
+      await api('/api/xui/bind?tag=' + encodeURIComponent(unbind.dataset.unbind)
+        + '&host=', {method:'POST'});
+      toast('已解绑');
+    }catch(err){ toast(err.message, true); }
     poll();
     return;
   }
