@@ -23,7 +23,7 @@ func main() {
 		maxSlots = flag.Int("max", 20, "最多同时运行的隧道数")
 		workDir  = flag.String("dir", "/var/lib/home-broadband", "工作目录")
 	)
-	panelMode := flag.String("panel", "", "节点链接后端: 留空按界面设置/自动探测, 3x-ui, native, xray-cf-lite")
+	panelMode := flag.String("panel", "", "节点链接后端: 留空按界面设置/自动探测, 3x-ui, native")
 	publicIP := flag.String("ip", "", "母机公网 IPv4，用于分享链接/SOCKS5 地址；留空则自动探测")
 	showVersion := flag.Bool("version", false, "显示版本后退出")
 	flag.Parse()
@@ -482,14 +482,11 @@ func apiXUIStatus(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	// xray-cf-lite 模式下节点由 xray-cf-lite 管，home-broadband 只改路由，不提供新建入口。
-	_, isXCL := p.(*XCL)
 	resp := map[string]any{
-		"available": true,
-		"kind":      p.Kind(),
-		"describe":  p.Describe(),
-		// 自建/3x-ui 能建入站；xray-cf-lite 只能改路由
-		"can_create": !isXCL,
+		"available":  true,
+		"kind":       p.Kind(),
+		"describe":   p.Describe(),
+		"can_create": true,
 	}
 	if x, ok := p.(*XUI); ok {
 		resp["port"] = x.Port
