@@ -115,9 +115,9 @@ func (t *Tunnel) nsName() string { return fmt.Sprintf("hb%s%d", instTag, t.Slot)
 func (t *Tunnel) subnet() string { return fmt.Sprintf("10.%d.%d", instBase, t.Slot) }
 
 // vethNames 返回母机侧与 netns 侧的网卡名。
-// 网卡名上限 15 个字符，"fov" + 4 位标识 + 槽位最多 9 个，留足余量。
+// 网卡名上限 15 个字符，"hbv" + 4 位标识 + 槽位最多 9 个，留足余量。
 func (t *Tunnel) vethNames() (string, string) {
-	return fmt.Sprintf("fov%s%d", instTag, t.Slot), fmt.Sprintf("fop%s%d", instTag, t.Slot)
+	return fmt.Sprintf("hbv%s%d", instTag, t.Slot), fmt.Sprintf("hbp%s%d", instTag, t.Slot)
 }
 
 // run 执行一条网络配置命令。
