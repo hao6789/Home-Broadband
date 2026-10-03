@@ -178,7 +178,7 @@ netns 仍能经母机 NAT 出网，只看通不通会漏判。连续两次不符
 ## 已知限制
 
 - SOCKS5 支持 CONNECT 和 UDP ASSOCIATE，DNS/QUIC 这类 UDP 也走隧道
-  （感谢 [@zsawi](https://github.com/zsawi) 的 [#22](https://github.com/byJoey/home-broadband/pull/22)）。
+  （感谢 [@zsawi](https://github.com/zsawi) 的 [#22](https://github.com/byJoey/fanout/pull/22)）。
   域名仍在本机解析。
 - VPN Gate 是志愿者节点，有相当比例已下线或满员（`AUTH_FAILED`）。
   启动时连不上会自动顺着同地区候选往下试，最多 6 个。
