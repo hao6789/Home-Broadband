@@ -287,7 +287,7 @@ button{width:100%;margin-top:14px;background:#4a9eda;border:0;color:#0b0e12;
   <a href="https://t.me/+ft-zI76oovgwNmRh" target="_blank" rel="noopener">交流群</a>
   <a href="https://youtube.com/@joeyblog" target="_blank" rel="noopener">油管</a>
   <a href="https://joeyblog.net" target="_blank" rel="noopener">博客</a>
-  <a href="https://github.com/byJoey/fanout" target="_blank" rel="noopener">GitHub</a>
+  <a href="https://github.com/hao6789/Home-Broadband" target="_blank" rel="noopener">GitHub</a>
 </div>
 <script>
 document.getElementById('f').onsubmit = async e => {
