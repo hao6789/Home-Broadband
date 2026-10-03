@@ -26,7 +26,7 @@ import (
 // 探母机公网 IP、拉起 Xray——都必须显式切回母机命名空间再执行。
 // 至于 ip netns exec 那一类，它们自己会切进去，包一层也不影响结果。
 
-// mainNetns 是 fanout 启动时所在的网络命名空间，全程持有不关闭。
+// mainNetns 是 home-broadband 启动时所在的网络命名空间，全程持有不关闭。
 var mainNetns *os.File
 
 // initMainNetns 记下母机的网络命名空间。必须在建任何隧道之前调用。

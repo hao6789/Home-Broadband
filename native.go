@@ -8,7 +8,7 @@ import (
 	"sync"
 )
 
-// Native 是 fanout 自己跑 Xray 的后端，用在本机没装 3x-ui 的场合。
+// Native 是 home-broadband 自己跑 Xray 的后端，用在本机没装 3x-ui 的场合。
 //
 // 入站数据存在 native.json，Xray 的运行配置每次改动后整份重新生成。
 // 全量重写比增量改省心：配置是纯函数产物，不会出现改了一半的中间态。
@@ -44,7 +44,7 @@ func openNative(workDir string) (*Native, error) {
 func (n *Native) Kind() string { return "native" }
 
 func (n *Native) Describe() string {
-	return fmt.Sprintf("fanout 自建 Xray（%s）", n.proc.bin)
+	return fmt.Sprintf("home-broadband 自建 Xray（%s）", n.proc.bin)
 }
 
 // apply 重新生成配置并重启 Xray，然后落盘。

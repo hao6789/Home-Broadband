@@ -37,10 +37,10 @@ func TestBuildXrayConfigBindsOnlyLiveTunnels(t *testing.T) {
 	for _, o := range cfg["outbounds"].([]any) {
 		outs[o.(map[string]any)["tag"].(string)] = true
 	}
-	if !outs["fanout-jp1"] {
+	if !outs["home-broadband-jp1"] {
 		t.Error("已连通的隧道应当有对应出站")
 	}
-	if outs["fanout-jp2"] {
+	if outs["home-broadband-jp2"] {
 		t.Error("未连通的隧道不该生成出站")
 	}
 
@@ -48,8 +48,8 @@ func TestBuildXrayConfigBindsOnlyLiveTunnels(t *testing.T) {
 	if len(rules) != 1 {
 		t.Fatalf("只有绑到连通隧道的入站才该有规则，实际 %d 条", len(rules))
 	}
-	if got := rules[0].(map[string]any)["outboundTag"]; got != "fanout-jp1" {
-		t.Errorf("outboundTag = %v, want fanout-jp1", got)
+	if got := rules[0].(map[string]any)["outboundTag"]; got != "home-broadband-jp1" {
+		t.Errorf("outboundTag = %v, want home-broadband-jp1", got)
 	}
 }
 
@@ -91,7 +91,7 @@ func TestShareLinkPerProtocol(t *testing.T) {
 }
 
 // 复制出来的入站直接叫出口的名字，不再拼模板备注。
-// 以前拼接会在"拿复制品当模板再复制"时叠成 fanout-JP-243-VN-165 这种。
+// 以前拼接会在"拿复制品当模板再复制"时叠成 home-broadband-JP-243-VN-165 这种。
 func TestUniqueRemark(t *testing.T) {
 	taken := map[string]bool{}
 	if got := uniqueRemark("🇯🇵 日本 54", taken); got != "🇯🇵 日本 54" {
@@ -108,7 +108,7 @@ func TestUniqueRemark(t *testing.T) {
 	}
 }
 
-// 换节点只改 fanout 自己起的名字，用户手工改过的不碰。
+// 换节点只改 home-broadband 自己起的名字，用户手工改过的不碰。
 func TestRenameExitLabel(t *testing.T) {
 	if got := renameExitLabel("🇯🇵 日本 54", "🇰🇷 韩国 15"); got != "🇰🇷 韩国 15" {
 		t.Errorf("自动名应整体换掉，实际 %q", got)
@@ -130,7 +130,7 @@ func TestIsGeneratedLabel(t *testing.T) {
 			t.Errorf("%q 是自动生成的名字", s)
 		}
 	}
-	for _, s := range []string{"", "线路A", "JP-244", "fanout-JP-243", "日本 54"} {
+	for _, s := range []string{"", "线路A", "JP-244", "home-broadband-JP-243", "日本 54"} {
 		if isGeneratedLabel(s) {
 			t.Errorf("%q 不是自动生成的名字", s)
 		}

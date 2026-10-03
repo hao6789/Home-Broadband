@@ -13,7 +13,7 @@ import (
 )
 
 // xrayCandidates 是自建模式查找 xray 二进制的位置，按优先级排列。
-// 优先用 fanout 自己装的那份，避免和别人的 xray 抢版本。
+// 优先用 home-broadband 自己装的那份，避免和别人的 xray 抢版本。
 func xrayCandidates(workDir string) []string {
 	return []string{
 		filepath.Join(workDir, "bin", "xray"),
@@ -56,7 +56,7 @@ func findXray(workDir string) (string, error) {
 
 // buildXrayConfig 由入站列表和当前隧道生成完整的 Xray 运行配置。
 //
-// 出站分三类：每条连通隧道一个 socks 出站（tag 为 fanout-<节点名>）、
+// 出站分三类：每条连通隧道一个 socks 出站（tag 为 home-broadband-<节点名>）、
 // 一个直连 direct、一个 block。绑定关系落成 routing 规则。
 func buildXrayConfig(inbounds []*nativeInbound, tunnels []*Tunnel) map[string]any {
 	live := map[string]bool{}
@@ -320,7 +320,7 @@ func (p *xrayProc) writePID(pid int) {
 
 // reapOrphan 清掉上次遗留的 Xray。
 //
-// fanout 被 SIGKILL 时来不及停子进程，遗留的 Xray 仍占着入站端口，
+// home-broadband 被 SIGKILL 时来不及停子进程，遗留的 Xray 仍占着入站端口，
 // 下次启动会因端口冲突起不来。这里按 pidfile 精确定位，
 // 并核对可执行文件确实是我们启动的那个，避免误杀同名进程。
 func (p *xrayProc) reapOrphan() {

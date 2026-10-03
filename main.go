@@ -21,7 +21,7 @@ func main() {
 	var (
 		webPort  = flag.Int("web", 8899, "Web 管理端口")
 		maxSlots = flag.Int("max", 20, "最多同时运行的隧道数")
-		workDir  = flag.String("dir", "/var/lib/fanout", "工作目录")
+		workDir  = flag.String("dir", "/var/lib/home-broadband", "工作目录")
 	)
 	panelMode := flag.String("panel", "", "节点链接后端: 留空按界面设置/自动探测, 3x-ui, native, xray-cf-lite")
 	publicIP := flag.String("ip", "", "母机公网 IPv4，用于分享链接/SOCKS5 地址；留空则自动探测")
@@ -29,11 +29,11 @@ func main() {
 	flag.Parse()
 
 	if *publicIP == "" {
-		*publicIP = os.Getenv("FANOUT_PUBLIC_IP")
+		*publicIP = os.Getenv("HOMEBROADBAND_PUBLIC_IP")
 	}
 
 	if *showVersion {
-		fmt.Println("fanout", version)
+		fmt.Println("home-broadband", version)
 		return
 	}
 
@@ -472,7 +472,7 @@ func apiJobDismiss(m *Manager) http.HandlerFunc {
 	}
 }
 
-// apiXUIStatus 报告当前的节点链接后端：接管的 3x-ui，或 fanout 自己跑的 Xray。
+// apiXUIStatus 报告当前的节点链接后端：接管的 3x-ui，或 home-broadband 自己跑的 Xray。
 func apiXUIStatus(w http.ResponseWriter, r *http.Request) {
 	p, err := openPanel()
 	if err != nil {
@@ -482,7 +482,7 @@ func apiXUIStatus(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	// xray-cf-lite 模式下节点由 xray-cf-lite 管，fanout 只改路由，不提供新建入口。
+	// xray-cf-lite 模式下节点由 xray-cf-lite 管，home-broadband 只改路由，不提供新建入口。
 	_, isXCL := p.(*XCL)
 	resp := map[string]any{
 		"available": true,
@@ -653,7 +653,7 @@ func apiXUIDetail(w http.ResponseWriter, r *http.Request) {
 }
 
 // publicHost 决定分享链接里的连接地址。母机公网 IPv4 才是客户端真正能连上
-// 的地址，所以优先用它；探测不到（比如纯内网）再退回访问 fanout 时用的主机名。
+// 的地址，所以优先用它；探测不到（比如纯内网）再退回访问 home-broadband 时用的主机名。
 func publicHost(r *http.Request) string {
 	if ip := hostPublicIP(); ip != "" {
 		return ip

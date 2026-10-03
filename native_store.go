@@ -44,12 +44,12 @@ type nativeInbound struct {
 	BoundTo string `json:"bound_to"`
 }
 
-// tlsConfig 是标准 TLS 的配置。证书要么由用户提供路径，要么 fanout 生成自签的。
+// tlsConfig 是标准 TLS 的配置。证书要么由用户提供路径，要么 home-broadband 生成自签的。
 type tlsConfig struct {
 	ServerName string `json:"server_name"`
 	CertFile   string `json:"cert_file"`
 	KeyFile    string `json:"key_file"`
-	// SelfSigned 记录证书是 fanout 生成的，分享链接要带 allowInsecure
+	// SelfSigned 记录证书是 home-broadband 生成的，分享链接要带 allowInsecure
 	SelfSigned bool `json:"self_signed"`
 	// CertSha256 是证书的 SHA-256 指纹（十六进制）。
 	// 自签证书客户端验不过，Xray 26.x 起 allowInsecure 已被移除，
