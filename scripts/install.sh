@@ -57,7 +57,7 @@ svc_install() {
     cat > /etc/init.d/home-broadband <<INITEOF
 #!/sbin/openrc-run
 name="home-broadband"
-description="home-broadband - VPN Gate 出口扇出网关"
+description="home-broadband - VPN Gate 多出口网关"
 command="${BIN}"
 command_args="-dir ${WORK_DIR}"
 command_background=true
