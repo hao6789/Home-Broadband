@@ -1771,7 +1771,8 @@ $('#updApply').onclick = async e => {
 // 端口/监听地址变了要提示用户之后从新地址进；密码/路径可原地生效
 function nextURL(port, listen, path, tls){
   const host = (listen && listen !== '0.0.0.0') ? listen : location.hostname;
-  const proto = tls ? 'https:' : location.protocol;
+  // 按切换后的新状态拼协议：刚关掉 HTTPS 时 location.protocol 还是 https:，不能直接用
+  const proto = tls ? 'https:' : 'http:';
   return proto + '//' + host + ':' + port + (path ? '/' + path : '') + '/';
 }
 

@@ -72,7 +72,14 @@ func (s *webServer) reload(cfg WebSettings) error {
 	s.mu.Unlock()
 
 	if sameAddr {
-		// 先停旧监听：不再接受新连接、端口释放；在途请求由下面的 Shutdown 优雅收尾。
+		// 先预加载一次证书：文件被删/损坏在这里就报错，旧监听还活着。
+		// （applyWebSettings 里已经校验过，这里是纵深防御。）
+		if cfg.tlsEnabled() {
+			if _, err := tls.LoadX509KeyPair(cfg.TLSCert, cfg.TLSKey); err != nil {
+				return fmt.Errorf("证书加载失败：%v", err)
+			}
+		}
+		// 再停旧监听：不再接受新连接、端口释放；在途请求由下面的 Shutdown 优雅收尾。
 		_ = oldLn.Close()
 	}
 	ln, err := bindNew()
