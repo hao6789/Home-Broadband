@@ -79,7 +79,7 @@ VPN Gate 是志愿者节点，下线/满员是常态，连不上会自动顺着�
 
 ## 🙏 致谢
 
-本项目脱胎于原 `fanout` 项目，感谢原作者的开创性工作——没有它，就没有今天的 Home-Broadband，致敬。
+本项目脱胎于 [byJoey](https://github.com/byJoey) 的 [fanout](https://github.com/byJoey/fanout)，感谢原作者的开创性工作——没有它，就没有今天的 Home-Broadband，致敬。
 
 ## 📄 许可
 
