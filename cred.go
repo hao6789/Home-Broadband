@@ -26,7 +26,7 @@ func newSocksCred() (SocksCred, error) {
 	if err != nil {
 		return SocksCred{}, err
 	}
-	return SocksCred{User: "fo" + user, Pass: pass}, nil
+	return SocksCred{User: "hb" + user, Pass: pass}, nil
 }
 
 func randomCredString(n int) (string, error) {
