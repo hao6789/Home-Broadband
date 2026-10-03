@@ -63,7 +63,7 @@ func main() {
 		log.Fatalf("初始化实例标识失败: %v", err)
 	}
 	if instTag != "" {
-		log.Printf("非默认工作目录，本实例用 netns fo%s* 与网段 10.%d.x", instTag, instBase)
+		log.Printf("非默认工作目录，本实例用 netns hb%s* 与网段 10.%d.x", instTag, instBase)
 	}
 
 	setPublicIPOverride(*publicIP)
