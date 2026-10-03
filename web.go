@@ -1768,6 +1768,9 @@ $('#updApply').onclick = async e => {
   }
 };
 
+// Chrome 等浏览器直接拦截的不安全端口：面板能监听，但浏览器打不开（ERR_UNSAFE_PORT）
+const UNSAFE_PORTS = new Set([1,7,9,11,13,15,17,19,20,21,22,23,25,37,42,43,53,77,79,87,95,101,102,103,104,109,110,111,113,115,117,119,123,135,139,143,179,389,465,512,513,514,515,526,530,531,532,540,556,563,587,601,636,993,995,2049,3659,4045,6000,6665,6666,6667,6668,6669]);
+
 // 端口/监听地址变了要提示用户之后从新地址进；密码/路径可原地生效
 function nextURL(port, listen, path, tls){
   const host = (listen && listen !== '0.0.0.0') ? listen : location.hostname;
@@ -1784,6 +1787,12 @@ $('#setSave').onclick = async e => {
   body.base_path = $('#setPath').value.trim();
   const port = parseInt($('#setPort').value.trim(), 10);
   if(port) body.port = port;
+  if(port && UNSAFE_PORTS.has(port)){
+    if(!confirm('端口 ' + port + ' 在浏览器不安全端口名单里，面板能启动但 Chrome 打不开。确定要用吗？')){
+      e.target.disabled = false;
+      return;
+    }
+  }
   body.listen_addr = $('#setListen').value;
   body.residential_only = $('#setResi').checked;
   const tlsCert = $('#setCert').value.trim();
