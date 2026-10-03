@@ -196,8 +196,4 @@ netns 仍能经母机 NAT 出网，只看通不通会漏判。连续两次不符
 
 ## 交流
 
-- 交流群：<https://t.me/+ft-zI76oovgwNmRh>
-- 视频教程：<https://youtube.com/@joeyblog>
-- 博客：<https://joeyblog.net>
-
-用着有问题、或者想要什么功能，去群里说或提 issue。
+用着有问题、或者想要什么功能，提 issue。
