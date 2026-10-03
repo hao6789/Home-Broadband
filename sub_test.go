@@ -259,7 +259,7 @@ func TestHandleSubRejectsUnknownTarget(t *testing.T) {
 	}
 }
 
-// 后端不给链接（xray-cf-lite 只读模式）时要把原因透出来，别静默回空。
+// 后端不给链接时要把原因透出来，别静默回空。
 func TestHandleSubSurfacesPanelError(t *testing.T) {
 	useSettings(t)
 	usePanel(t, &fakePanel{
