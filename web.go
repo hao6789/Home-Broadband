@@ -23,6 +23,8 @@ try{var _t=localStorage.getItem('hb-theme');
 if(_t==='dark'||_t==='light')document.documentElement.setAttribute('data-theme',_t);}catch(e){}
 </script>
 <style>
+/* 全局兜底：hidden 属性必须真的藏住，不被后面的 display 规则覆盖 */
+[hidden]{display:none!important}
 /* ===== 主题：默认深色；浅色可手动选，或跟随系统 ===== */
 :root{
   color-scheme:dark;
