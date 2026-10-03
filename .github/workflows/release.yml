@@ -33,17 +33,17 @@ jobs:
         run: |
           VERSION="${GITHUB_REF_NAME:-dev}"
           go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
-            -o fanout .
+            -o home-broadband .
 
       - name: 打包
         run: |
-          tar czf "fanout-linux-${{ matrix.goarch }}.tar.gz" \
-            fanout install.sh f.sh fanout.service README.md
+          tar czf "home-broadband-linux-${{ matrix.goarch }}.tar.gz" \
+            home-broadband install.sh f.sh home-broadband.service README.md
 
       - uses: actions/upload-artifact@v4
         with:
-          name: fanout-linux-${{ matrix.goarch }}
-          path: fanout-linux-${{ matrix.goarch }}.tar.gz
+          name: home-broadband-linux-${{ matrix.goarch }}
+          path: home-broadband-linux-${{ matrix.goarch }}.tar.gz
 
   release:
     needs: build
@@ -55,11 +55,11 @@ jobs:
           merge-multiple: true
 
       - name: 生成校验和
-        run: sha256sum fanout-linux-*.tar.gz > checksums.txt
+        run: sha256sum home-broadband-linux-*.tar.gz > checksums.txt
 
       - uses: softprops/action-gh-release@v2
         with:
           files: |
-            fanout-linux-*.tar.gz
+            home-broadband-linux-*.tar.gz
             checksums.txt
           generate_release_notes: true
