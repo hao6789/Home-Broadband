@@ -31,7 +31,7 @@ SOCKS5 监听在母机，出站连接用 `setns` 切进对应 netns 建立。
 需要 root，Linux（依赖 netns）。
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/scripts/install.sh)
 ```
 
 会自动下载对应架构的预编译二进制。也可以 clone 仓库后在源码目录运行同一个脚本，
@@ -47,7 +47,7 @@ Xray 到 `/var/lib/home-broadband/bin/`，装了则跳过，入站交给面板�
 
 ```bash
 apk add bash curl
-bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/scripts/install.sh)
 ```
 
 另外 home-broadband 要在 netns 里跑 openvpn，**宿主必须放开 `/dev/net/tun`**。
