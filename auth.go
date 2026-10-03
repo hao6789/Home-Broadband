@@ -255,24 +255,33 @@ const loginHTML = `<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>home-broadband</title>
+<script>
+try{var _t=localStorage.getItem('hb-theme');if(_t==='dark'||_t==='light')document.documentElement.setAttribute('data-theme',_t);}catch(e){}
+</script>
 <style>
-body{margin:0;height:100vh;display:flex;flex-direction:column;gap:16px;
-  align-items:center;justify-content:center;
-  background:#12151a;color:#dde3ec;
-  font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+:root{color-scheme:dark;--bg:#0b0e13;--text:#e8edf4;--dim:#9aa5b4;--accent:#5aa9e6;--bad:#d1605c;--glass:rgba(22,26,34,.6);--glass-strong:rgba(22,26,34,.85);--glass-border:rgba(255,255,255,.13);--glass-shadow:0 18px 50px rgba(0,0,0,.35);--field:rgba(8,10,14,.5);--blob1:rgba(74,158,218,.22);--blob2:rgba(139,92,246,.17);--blob3:rgba(63,166,107,.13);--on-accent:#fff}
+html[data-theme="light"]{color-scheme:light;--bg:#edf0f5;--text:#1d2431;--dim:#5c6879;--accent:#2b7cc2;--bad:#bd443e;--glass:rgba(255,255,255,.62);--glass-strong:rgba(255,255,255,.88);--glass-border:rgba(25,35,55,.12);--glass-shadow:0 18px 44px rgba(45,65,95,.18);--field:rgba(255,255,255,.65);--blob1:rgba(125,185,245,.42);--blob2:rgba(185,155,250,.36);--blob3:rgba(140,220,180,.36);--on-accent:#fff}
+@media (prefers-color-scheme:light){html:not([data-theme]){color-scheme:light;--bg:#edf0f5;--text:#1d2431;--dim:#5c6879;--accent:#2b7cc2;--bad:#bd443e;--glass:rgba(255,255,255,.62);--glass-strong:rgba(255,255,255,.88);--glass-border:rgba(25,35,55,.12);--glass-shadow:0 18px 44px rgba(45,65,95,.18);--field:rgba(255,255,255,.65);--blob1:rgba(125,185,245,.42);--blob2:rgba(185,155,250,.36);--blob3:rgba(140,220,180,.36);--on-accent:#fff}}
+body{margin:0;min-height:100vh;display:flex;flex-direction:column;gap:18px;
+  align-items:center;justify-content:center;color:var(--text);
+  font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  -webkit-font-smoothing:antialiased;
+  background:radial-gradient(900px 500px at 20% 10%,var(--blob1),transparent 60%),radial-gradient(800px 500px at 80% 90%,var(--blob2),transparent 60%),radial-gradient(700px 500px at 85% 15%,var(--blob3),transparent 60%),var(--bg);
+  background-attachment:fixed}
 .links{display:flex;gap:16px}
-.links a{color:#8b95a5;text-decoration:none;font-size:12px}
-.links a:hover{color:#4a9eda}
-form{background:#181c23;border:1px solid #262c36;border-radius:6px;
-  padding:22px 24px;width:300px}
-h1{font-size:13px;font-weight:600;margin:0 0 16px}
-label{display:block;color:#8b95a5;font-size:11px;margin-bottom:6px}
-input{width:100%;box-sizing:border-box;background:#0e1116;border:1px solid #262c36;
-  color:#dde3ec;border-radius:4px;padding:7px 9px;font:inherit}
-input:focus{outline:none;border-color:#4a9eda}
-button{width:100%;margin-top:14px;background:#4a9eda;border:0;color:#0b0e12;
-  font:inherit;font-weight:600;border-radius:4px;padding:8px;cursor:pointer}
-.err{color:#c25450;font-size:11px;margin-top:10px;min-height:14px}
+.links a{color:var(--dim);text-decoration:none;font-size:12px}
+.links a:hover{color:var(--accent)}
+form{background:var(--glass-strong);border:1px solid var(--glass-border);border-radius:16px;
+  -webkit-backdrop-filter:blur(26px) saturate(160%);backdrop-filter:blur(26px) saturate(160%);
+  box-shadow:var(--glass-shadow);padding:26px 28px;width:320px}
+h1{font-size:14px;font-weight:600;margin:0 0 18px;letter-spacing:.5px}
+label{display:block;color:var(--dim);font-size:11px;margin-bottom:6px}
+input{width:100%;box-sizing:border-box;background:var(--field);border:1px solid var(--glass-border);
+  color:var(--text);border-radius:10px;padding:8px 10px;font:inherit}
+input:focus{outline:none;border-color:var(--accent)}
+button{width:100%;margin-top:16px;background:linear-gradient(135deg,rgba(255,255,255,.22),rgba(255,255,255,0) 45%),var(--accent);border:0;color:var(--on-accent);
+  font:inherit;font-weight:600;border-radius:10px;padding:9px;cursor:pointer}
+.err{color:var(--bad);font-size:11px;margin-top:10px;min-height:14px}
 </style>
 </head>
 <body>
