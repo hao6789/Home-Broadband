@@ -1004,8 +1004,8 @@ function renderNodes(){
       + '<span class="count">' + unbound.length + ' 个，走直连</span>'
       + '<span class="spacer"></span>'
       + '<button data-delorphans="1">' + ICON.trash + '删除未绑定</button></div>'
-      + (hasUp
-          ? unbound.map(i => nodeRow(i, false)).join('')
+      + unbound.map(i => nodeRow(i, false)).join('')
+      + (hasUp ? ''
           : '<div class="dim small" style="padding:8px 0">没有连通的出口，先去「出口」页开一个</div>')
       + '</div>';
   }
