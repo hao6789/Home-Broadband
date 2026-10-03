@@ -46,7 +46,7 @@ func TestExtractBinary(t *testing.T) {
 	dir := t.TempDir()
 	tgz := filepath.Join(dir, "pkg.tar.gz")
 	writeTarGz(t, tgz, map[string]string{
-		"install.sh": "echo hi",
+		"scripts/install.sh": "echo hi",
 		"home-broadband":     "BINARY-CONTENT",
 		"README.md":  "readme",
 	})
