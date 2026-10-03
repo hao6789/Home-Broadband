@@ -91,8 +91,8 @@ func TestXCLBindAddsRoutingKeepsXCLOutbounds(t *testing.T) {
 
 	cfg := readCfg(t, x)
 	tags := outboundTags(cfg)
-	if len(tags) != 3 || tags[0] != "direct" || tags[1] != "block" || tags[2] != "fanout-jp-01" {
-		t.Fatalf("xray-cf-lite 自己的出站要原样保留、fanout 出站追加在后: %v", tags)
+	if len(tags) != 3 || tags[0] != "direct" || tags[1] != "block" || tags[2] != "home-broadband-jp-01" {
+		t.Fatalf("xray-cf-lite 自己的出站要原样保留、home-broadband 出站追加在后: %v", tags)
 	}
 
 	bound := x.boundInbounds(cfg)
@@ -156,7 +156,7 @@ func TestXCLBindRebindMovesInsteadOfDuplicating(t *testing.T) {
 	cfg := readCfg(t, x)
 	routing, _ := cfg["routing"].(map[string]any)
 	rules, _ := routing["rules"].([]any)
-	// xray-cf-lite 自带的 bittorrent 拦截规则要原样留着，加上 fanout 的一条共两条
+	// xray-cf-lite 自带的 bittorrent 拦截规则要原样留着，加上 home-broadband 的一条共两条
 	if len(rules) != 2 {
 		blob, _ := json.Marshal(rules)
 		t.Fatalf("换绑应改写而不是叠加规则: %s", blob)
@@ -180,7 +180,7 @@ func TestXCLBindEmptyHostUnbinds(t *testing.T) {
 	}
 }
 
-// xray-cf-lite 自己的 routing 规则不能被 fanout 的绑定/解绑动作误伤
+// xray-cf-lite 自己的 routing 规则不能被 home-broadband 的绑定/解绑动作误伤
 func TestXCLKeepsForeignRoutingRules(t *testing.T) {
 	x := xclFixture(t)
 	tunnels := []*Tunnel{xclTunnel("jp-01", 1, 20001)}
@@ -221,7 +221,7 @@ func TestXCLOnTunnelsChangedDropsDeadOutbounds(t *testing.T) {
 	if err := x.Bind("vless-ws", "jp-01", tunnels); err != nil {
 		t.Fatal(err)
 	}
-	// 隧道没了，fanout 出站要跟着消失，xray-cf-lite 的 direct/block 留着
+	// 隧道没了，home-broadband 出站要跟着消失，xray-cf-lite 的 direct/block 留着
 	if err := x.OnTunnelsChanged(nil); err != nil {
 		t.Fatal(err)
 	}

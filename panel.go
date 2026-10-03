@@ -9,9 +9,9 @@ import (
 	"sync"
 )
 
-// Panel 是 fanout 管理节点链接的后端。
+// Panel 是 home-broadband 管理节点链接的后端。
 //
-// 有两个实现：接管本机 3x-ui 面板的 XUI，以及 fanout 自己跑 Xray 的 Native。
+// 有两个实现：接管本机 3x-ui 面板的 XUI，以及 home-broadband 自己跑 Xray 的 Native。
 // 界面和编排层只依赖这个接口，两种模式下的操作语义完全一致。
 type Panel interface {
 	// Kind 返回 "3x-ui" 或 "native"，界面据此提示当前模式。
@@ -52,7 +52,7 @@ type Panel interface {
 	OnTunnelsChanged(tunnels []*Tunnel) error
 
 	// Close 释放后端占用的资源。自建模式要停掉自己拉起的 Xray，
-	// 否则 fanout 退出后它会变成孤儿进程，下次启动撞端口。
+	// 否则 home-broadband 退出后它会变成孤儿进程，下次启动撞端口。
 	Close()
 }
 
@@ -128,7 +128,7 @@ func savePanelMode(dir, mode string) error {
 // openPanel 返回当前可用的后端。
 //
 // 优先接管本机已装的 3x-ui：用户既然装了面板，入站大概率在那边管着，
-// fanout 另起一个 Xray 会和面板抢端口。探测不到才用自建模式。
+// home-broadband 另起一个 Xray 会和面板抢端口。探测不到才用自建模式。
 func openPanel() (Panel, error) {
 	panelState.mu.Lock()
 	defer panelState.mu.Unlock()
@@ -211,7 +211,7 @@ func availablePanelModes(workDir string) []map[string]any {
 	}
 	modes = append(modes, map[string]any{"mode": "3x-ui", "label": "3x-ui 面板", "available": xuiOK, "reason": xuiReason})
 
-	// 自建模式总是可用（fanout 自己跑 Xray），前提是能找到 xray 二进制，这里不预判，交给切换时报错。
+	// 自建模式总是可用（home-broadband 自己跑 Xray），前提是能找到 xray 二进制，这里不预判，交给切换时报错。
 	modes = append(modes, map[string]any{"mode": "native", "label": "自建 Xray", "available": true, "reason": ""})
 
 	return modes
@@ -220,7 +220,7 @@ func availablePanelModes(workDir string) []map[string]any {
 // switchPanelMode 运行时切换后端。mode 传空表示恢复自动探测。
 //
 // 先关掉旧后端释放资源，再按新模式探测；探测失败时回滚到自动模式，
-// 避免把 fanout 卡在一个连不上的后端上。
+// 避免把 home-broadband 卡在一个连不上的后端上。
 func switchPanelMode(mode string) (Panel, error) {
 	switch mode {
 	case "", "3x-ui", "native", "xray-cf-lite":

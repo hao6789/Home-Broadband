@@ -118,7 +118,7 @@ func TestRegionsSkipsHosting(t *testing.T) {
 	}
 }
 
-// 没配过这个开关时默认是开的：fanout 的意义就是把家宽扇成出口。
+// 没配过这个开关时默认是开的：home-broadband 的意义就是把家宽扇成出口。
 func TestResidentialOnlyDefaultsOn(t *testing.T) {
 	withResidentialOnly(t, nil)
 	if !residentialOnly() {

@@ -13,8 +13,8 @@ import (
 //
 // xray-cf-lite 把 Xray 装成系统服务，配置固定落在 /usr/local/etc/xray/config.json，
 // 生成若干个 ws 入站并套 Cloudflare 前置，但出站只有 direct/block、没有分流。
-// fanout 在这个后端下不新建/删除节点，只负责给这些入站加“走哪条家宽出口”的路由：
-// 往同一份 config 注入 fanout- 前缀的 socks 出站和 routing 规则，
+// home-broadband 在这个后端下不新建/删除节点，只负责给这些入站加“走哪条家宽出口”的路由：
+// 往同一份 config 注入 home-broadband- 前缀的 socks 出站和 routing 规则，
 // 只碰自己前缀的条目，xray-cf-lite 管的 inbounds 原样保留，两边互不覆盖。
 type XCL struct {
 	cfgPath string
@@ -85,7 +85,7 @@ func (x *XCL) saveCfg(cfg map[string]any) error {
 	if err != nil {
 		return fmt.Errorf("序列化配置失败: %w", err)
 	}
-	tmp := x.cfgPath + ".fanout.tmp"
+	tmp := x.cfgPath + ".home-broadband.tmp"
 	if err := os.WriteFile(tmp, blob, 0644); err != nil {
 		return fmt.Errorf("写入临时配置失败: %w", err)
 	}
@@ -196,7 +196,7 @@ func (x *XCL) boundInbounds(cfg map[string]any) map[string]string {
 	return bound
 }
 
-// syncOutbounds 让 config 里 fanout- 出站与当前连通的隧道一致，保留 xray-cf-lite 的 direct/block。
+// syncOutbounds 让 config 里 home-broadband- 出站与当前连通的隧道一致，保留 xray-cf-lite 的 direct/block。
 func (x *XCL) syncOutbounds(cfg map[string]any, tunnels []*Tunnel) {
 	outbounds, _ := cfg["outbounds"].([]any)
 	kept := make([]any, 0, len(outbounds))
@@ -337,12 +337,12 @@ func (x *XCL) Rebind(oldHost string, target *Tunnel, tunnels []*Tunnel) error {
 	return nil
 }
 
-// ResyncOutbound 隧道集合变化后重刷出站，保证 fanout- 出站与实际隧道一致。
+// ResyncOutbound 隧道集合变化后重刷出站，保证 home-broadband- 出站与实际隧道一致。
 func (x *XCL) ResyncOutbound(t *Tunnel, tunnels []*Tunnel) error {
 	return x.OnTunnelsChanged(tunnels)
 }
 
-// OnTunnelsChanged 在隧道集合变化后重写 fanout- 出站并重启 Xray。
+// OnTunnelsChanged 在隧道集合变化后重写 home-broadband- 出站并重启 Xray。
 func (x *XCL) OnTunnelsChanged(tunnels []*Tunnel) error {
 	cfg, err := x.loadCfg()
 	if err != nil {
@@ -371,9 +371,9 @@ func (x *XCL) InboundLinks(ids []int, publicHost string) ([]string, error) {
 	return nil, nil
 }
 
-// ---- 以下操作在 xray-cf-lite 模式下禁用：节点由 xray-cf-lite 管，fanout 只改路由 ----
+// ---- 以下操作在 xray-cf-lite 模式下禁用：节点由 xray-cf-lite 管，home-broadband 只改路由 ----
 
-var errXCLReadOnly = fmt.Errorf("xray-cf-lite 模式下节点由 xray-cf-lite 管理，fanout 只能改路由（绑定出口），不能增删或改节点本身")
+var errXCLReadOnly = fmt.Errorf("xray-cf-lite 模式下节点由 xray-cf-lite 管理，home-broadband 只能改路由（绑定出口），不能增删或改节点本身")
 
 func (x *XCL) CreateInbound(spec NewInboundSpec, tunnels []*Tunnel) (*CreatedInbound, error) {
 	return nil, errXCLReadOnly

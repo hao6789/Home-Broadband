@@ -29,7 +29,7 @@ type WebSettings struct {
 }
 
 // residentialOnly 返回"只用家宽"是否开启。没配过时默认开：
-// fanout 存在的意义就是把家宽扇成出口，机房 IP 对用户没价值。
+// home-broadband 存在的意义就是把家宽扇成出口，机房 IP 对用户没价值。
 func (s WebSettings) residentialOnly() bool {
 	if s.ResidentialOnly == nil {
 		return true

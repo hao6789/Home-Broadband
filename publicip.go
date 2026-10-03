@@ -17,7 +17,7 @@ var publicIPSources = []string{
 
 var (
 	publicIPMu       sync.Mutex
-	publicIPOverride string    // 由 -ip / FANOUT_PUBLIC_IP 显式指定，优先级最高
+	publicIPOverride string    // 由 -ip / HOMEBROADBAND_PUBLIC_IP 显式指定，优先级最高
 	publicIPCache    string    // 上一次探测成功的结果
 	publicIPAt       time.Time // 上次探测时间，用于 TTL
 )
@@ -31,7 +31,7 @@ func setPublicIPOverride(ip string) {
 	publicIPMu.Unlock()
 }
 
-// hostPublicIP 返回跑 fanout 这台母机的公网 IPv4。
+// hostPublicIP 返回跑 home-broadband 这台母机的公网 IPv4。
 // 优先用显式覆盖值；否则用缓存（未过期）；再否则对外探测一次。
 // 探测不到就返回空串，由调用方决定兜底。
 func hostPublicIP() string {

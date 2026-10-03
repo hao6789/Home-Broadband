@@ -9,7 +9,7 @@ import (
 )
 
 // SOCKS5 UDP ASSOCIATE 支持。
-// 原版 fanout 只实现 CONNECT，Xray 转发 hysteria2 客户端的 DNS/QUIC 等
+// 原版 home-broadband 只实现 CONNECT，Xray 转发 hysteria2 客户端的 DNS/QUIC 等
 // UDP 包时走 UDP ASSOCIATE 会被拒，导致手机端（DNS/QUIC 走隧道）连不上。
 // 这里按 RFC1928 补上 UDP 中继：每个客户端 UDP 包在隧道(netns)内建立到
 // 目标的已连接 UDP socket 转发，应答再按 SOCKS5 UDP 头回给客户端。

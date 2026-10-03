@@ -109,9 +109,9 @@ func (t *Tunnel) forgetSwaps() {
 	t.mu.Unlock()
 }
 
-// 名字里都带上实例标识，否则同机第二个 fanout 会把这条隧道拆掉（见 instance.go）。
+// 名字里都带上实例标识，否则同机第二个 home-broadband 会把这条隧道拆掉（见 instance.go）。
 // 默认工作目录下 instTag 是空串、instBase 是 99，名字与老版本完全一致。
-func (t *Tunnel) nsName() string { return fmt.Sprintf("fo%s%d", instTag, t.Slot) }
+func (t *Tunnel) nsName() string { return fmt.Sprintf("hb%s%d", instTag, t.Slot) }
 func (t *Tunnel) subnet() string { return fmt.Sprintf("10.%d.%d", instBase, t.Slot) }
 
 // vethNames 返回母机侧与 netns 侧的网卡名。

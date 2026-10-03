@@ -48,13 +48,13 @@ func TestInMainNetnsRunsInMainNamespace(t *testing.T) {
 // 第一版没隔离，结果把同一批里另外四个用例全搞挂了，
 // 那次失败本身就是这个 bug 的现场复现。
 func TestInMainNetnsRecoversFromForeignNamespace(t *testing.T) {
-	if os.Getenv("FANOUT_NETNS_CHILD") != "1" {
+	if os.Getenv("HOMEBROADBAND_NETNS_CHILD") != "1" {
 		if os.Geteuid() != 0 {
 			t.Skip("要 root 才能建命名空间")
 		}
 		cmd := exec.Command(os.Args[0],
 			"-test.run=^TestInMainNetnsRecoversFromForeignNamespace$", "-test.v")
-		cmd.Env = append(os.Environ(), "FANOUT_NETNS_CHILD=1")
+		cmd.Env = append(os.Environ(), "HOMEBROADBAND_NETNS_CHILD=1")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Fatalf("子进程里的用例失败: %v\n%s", err, out)

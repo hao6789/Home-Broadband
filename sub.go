@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-// 订阅：把 fanout 管着的节点链接聚成一条地址，客户端订阅一次就全有了。
+// 订阅：把 home-broadband 管着的节点链接聚成一条地址，客户端订阅一次就全有了。
 //
 // 为什么需要它：一次批量开 5 个家宽出口就是 5 个入站、5 条链接，
 // 手动一条条复制粘贴到客户端太笨。而且换节点时端口和客户端配置不变，
@@ -191,7 +191,7 @@ func handleSub(m *Manager) http.HandlerFunc {
 		w.Header().Set("Cache-Control", "no-store")
 		// 客户端据此决定多久自动拉一次；出口增删之外的变化不影响链接，12 小时够
 		w.Header().Set("Profile-Update-Interval", "12")
-		w.Header().Set("Content-Disposition", "inline; filename=fanout")
+		w.Header().Set("Content-Disposition", "inline; filename=home-broadband")
 		_, _ = w.Write([]byte(encodeSub(links, target)))
 	}
 }
