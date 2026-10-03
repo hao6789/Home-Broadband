@@ -176,7 +176,7 @@ func handleSub(m *Manager) http.HandlerFunc {
 		}
 		links, err := subLinks(m, host, q.Get("bound") != "0")
 		if err != nil {
-			// 节点后端不给链接（xray-cf-lite 模式下链接由它自己的订阅负责）
+			// 节点后端不给链接
 			http.Error(w, "生成订阅失败: "+firstLine(err.Error()), http.StatusBadGateway)
 			return
 		}
