@@ -216,6 +216,14 @@ label.chk input{margin:0;accent-color:var(--accent);width:15px;height:15px}
 .ninfo{display:flex;flex-direction:column;gap:2px;min-width:0}
 .ninfo b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nrow .acts{display:flex;align-items:center;gap:6px;flex:none}
+details.adv{border:1px solid var(--border);border-radius:12px;padding:0 14px;margin-top:14px}
+details.adv summary{cursor:pointer;padding:12px 2px;font-size:13px;font-weight:600;color:var(--dim);
+  list-style:none;display:flex;align-items:center;gap:8px}
+details.adv summary::-webkit-details-marker{display:none}
+details.adv summary::after{content:'›';margin-left:auto;transition:transform .15s;font-size:16px}
+details.adv[open] summary::after{transform:rotate(90deg)}
+details.adv .f{margin-top:12px}
+details.adv .f:last-child{margin-bottom:14px}
 .bindlbl{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);flex:none}
 .bindlbl select{width:190px}
 .count{color:var(--dim);font-size:12px}
@@ -454,11 +462,11 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
           <span class="spacer"></span>
           <button id="subBtn">
             <svg viewBox="0 0 24 24"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
-            订阅
+            订阅地址
           </button>
           <button id="exportAll">
             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
-            导出链接
+            复制全部链接
           </button>
         </div>
         <div id="nodelist"></div>
@@ -496,7 +504,7 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
         <div class="hint" id="availhint"></div>
       </label>
       <label class="f" id="tplwrap">
-        <span>节点链接</span>
+        <span>节点模板</span>
         <select id="tpl"></select>
         <div class="hint" id="tplhint"></div>
       </label>
@@ -547,6 +555,8 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
         </select>
         <div class="hint" id="nsechint"></div>
       </label>
+      <details class="adv" id="nadvwrap" hidden>
+        <summary>高级选项<span class="dim" id="nadvcount"></span></summary>
       <label class="f" id="nvisionwrap" hidden>
         <span>流控</span>
         <label class="chk"><input type="checkbox" id="nvision"> xtls-rprx-vision</label>
@@ -571,6 +581,7 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
         <span id="npathlabel">路径</span>
         <input id="npath" type="text" placeholder="留空自动生成">
       </label>
+      </details>
       <label class="f">
         <span>端口</span>
         <input id="nport" type="text" inputmode="numeric" placeholder="留空随机分配">
@@ -674,7 +685,6 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
         <input id="suburl" type="text" spellcheck="false" readonly></label>
       <div class="hint">客户端里新建订阅填这条。以后加出口、删出口都会自己跟上，不用重新配。</div>
       <div class="hint bad">地址最后那串口令等于密码，别发群里。</div>
-      <div class="hint">想看明文而不是 base64，地址后面加 <code>&amp;target=links</code>。</div>
     </div>
     <div class="foot">
       <span class="spacer"></span>
@@ -869,7 +879,7 @@ function renderExits(){
   list.innerHTML = exits.map(e => {
     const label = e.exit_ip || (e.status === 'starting' ? '连接中…' : '—');
     const chips = (e.inbounds || []).length
-      ? e.inbounds.map(i => '<button class="chip" data-detail="' + i.id + '" title="'
+      ? e.inbounds.map(i => '<button class="chip" data-detail="' + i.id + '" title="点击查看详情：'
           + esc((i.remark || i.protocol) + ' · ' + i.protocol + ' :' + i.port) + '">'
           + esc(i.remark || i.protocol) + '<span> :' + i.port + '</span></button>').join('')
       : '<span class="chip none">无节点</span>';
@@ -884,8 +894,8 @@ function renderExits(){
       +   '<span class="spacer"></span>'
       +   '<button class="socksbtn" data-cred="' + e.slot + '" title="SOCKS5 访问凭据">'
       +     ICON.lock + '<span class="mono">:' + e.port + '</span></button>'
-      +   '<button class="iconbtn" data-swap="' + e.slot + '" title="换一个节点">' + ICON.redo + '</button>'
-      +   '<button class="iconbtn" data-stop="' + e.slot + '" title="停止这个出口">' + ICON.stop + '</button>'
+      +   '<button data-swap="' + e.slot + '">换节点</button>'
+      +   '<button data-stop="' + e.slot + '">停止</button>'
       + '</div>'
       + '<div class="ebot"><span class="lbl">节点</span>'
       +   '<span class="chips">' + chips + '</span></div>'
@@ -954,7 +964,7 @@ function renderNodes(){
     html += '<div class="card"><div class="nghead"><b>未绑定</b>'
       + '<span class="count">' + unbound.length + ' 个，走直连</span>'
       + '<span class="spacer"></span>'
-      + '<button data-delorphans="1">' + ICON.trash + '清理</button></div>'
+      + '<button data-delorphans="1">' + ICON.trash + '删除未绑定</button></div>'
       + (hasUp
           ? unbound.map(i => nodeRow(i, false)).join('')
           : '<div class="dim small" style="padding:8px 0">没有连通的出口，先去「出口」页开一个</div>')
@@ -995,8 +1005,10 @@ function renderJobs(jobs){
 async function poll(){
   try{
     view = await api('/api/exits');
-    $('#panel').textContent = view.panel
-      ? (backendName() + ' · ' + view.panel)
+    const bn = backendName();
+    const pn = view.panel || '';
+    $('#panel').textContent = pn
+      ? (pn.toLowerCase() === bn.toLowerCase() ? bn : bn + ' · ' + pn)
       : (view.panel_info || '');
     renderDash();
     renderExits();
@@ -1157,6 +1169,15 @@ function syncNodeForm(){
   $('#nsechint').textContent =
     cur === 'reality' ? '密钥与 shortId 自动生成' :
     cur === 'tls'     ? '不填证书就用自签，链接会带证书指纹' : '';
+
+  // 高级选项：有可用项才露出来，刚露出来就自动展开
+  const advIds = ['nvisionwrap', 'nsniwrap', 'ncertwrap', 'nkeywrap', 'ndestwrap', 'npathwrap'];
+  const advN = advIds.filter(id => !$('#' + id).hidden).length;
+  const adv = $('#nadvwrap');
+  const wasHidden = adv.hidden;
+  adv.hidden = !advN;
+  $('#nadvcount').textContent = advN ? '（' + advN + ' 项可用）' : '';
+  if(wasHidden && advN) adv.open = true;
 }
 $('#nproto').onchange = syncNodeForm;
 $('#nnet').onchange = syncNodeForm;
@@ -1216,6 +1237,11 @@ $('#go').onclick = async e => {
 document.addEventListener('click', async e => {
   const stop = e.target.closest('[data-stop]');
   if(stop){
+    const x = view.exits.find(v => v.slot === Number(stop.dataset.stop));
+    const nn = x && x.inbounds ? x.inbounds.length : 0;
+    const ip = x ? (x.exit_ip || x.host || '') : '';
+    if(!confirm('停止出口' + (ip ? ' ' + ip : '') + '？'
+      + (nn ? '上面 ' + nn + ' 个节点会回到直连，节点本身不会删除。' : '这个出口上没有节点。'))) return;
     stop.disabled = true;
     try{ await api('/api/stop?slot=' + stop.dataset.stop, {method:'POST'}); }
     catch(err){ toast(err.message, true); }
@@ -1224,6 +1250,9 @@ document.addEventListener('click', async e => {
   }
   const swap = e.target.closest('[data-swap]');
   if(swap){
+    const x = view.exits.find(v => v.slot === Number(swap.dataset.swap));
+    const ip = x ? (x.exit_ip || x.host || '') : '';
+    if(!confirm('给出口' + (ip ? ' ' + ip : '') + '换个节点？切换时会断一下。')) return;
     swap.disabled = true;
     try{
       await api('/api/swap?slot=' + swap.dataset.swap, {method:'POST'});
