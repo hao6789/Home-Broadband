@@ -123,6 +123,10 @@ body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);
   position:sticky;top:0;background:var(--bg);z-index:20}
 .topbar h1{font-size:20px;margin:0;font-weight:700;letter-spacing:.2px}
 .content{padding:24px 28px 60px;max-width:1140px;width:100%;margin:0 auto}
+/* 视图切换动效：从 hidden 切回来时动画重播 */
+.view{animation:viewIn .22s ease}
+@keyframes viewIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.view{animation:none}}
 
 /* ===== 通用控件 ===== */
 button{font:inherit;font-size:13px;font-weight:500;color:var(--text);background:var(--card);
@@ -396,7 +400,7 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
     </div>
 
     <div class="content">
-      <section id="view-dash">
+      <section class="view" id="view-dash">
         <div class="stats">
           <div class="stat"><div class="num" id="stUp">–</div><div class="lbl">在线出口</div></div>
           <div class="stat"><div class="num" id="stNodes">–</div><div class="lbl">节点总数</div></div>
@@ -407,7 +411,7 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
         <div id="jobs"></div>
       </section>
 
-      <section id="view-exits" hidden>
+      <section class="view" id="view-exits" hidden>
         <div class="toolbar">
           <h2>出口 <span class="count" id="ecount"></span></h2>
           <span class="spacer"></span>
@@ -419,7 +423,7 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
         <div id="list"></div>
       </section>
 
-      <section id="view-settings" hidden>
+      <section class="view" id="view-settings" hidden>
         <div class="card narrow">
           <label class="f"><span>访问口令</span>
             <input id="setPw" type="password" spellcheck="false" autocomplete="new-password" placeholder="留空则不改"></label>
@@ -478,7 +482,7 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
         </div>
       </section>
 
-      <section id="view-nodes" hidden>
+      <section class="view" id="view-nodes" hidden>
         <div class="toolbar">
           <h2>节点 <span class="count" id="ncount"></span></h2>
           <span class="spacer"></span>
@@ -795,6 +799,7 @@ function switchView(v){
   $('#newnode').style.display = (v === 'exits' || v === 'settings') ? 'none' : '';
   if(v === 'settings') loadSettings();
   try{ localStorage.setItem('hb-view', v); }catch(e){}
+  poll(); // 切视图立即刷一次，不用等下个 3 秒周期
 }
 document.querySelector('.nav').addEventListener('click', e => {
   const b = e.target.closest('[data-view]');
@@ -823,6 +828,11 @@ const ICON = {
 // 界面挂在随机前缀下，请求一律走相对路径
 async function api(path, opts){
   const r = await fetch(path.replace(/^\//, ''), opts);
+  if(r.status === 401){
+    // 会话过期：刷一次，服务端会直接给登录页，不会死循环
+    location.reload();
+    throw new Error('未登录');
+  }
   const d = await r.json().catch(()=>({}));
   if(!r.ok) throw new Error(d.error || ('HTTP '+r.status));
   return d;
@@ -1838,6 +1848,9 @@ $('#setSave').onclick = async e => {
 
 poll();
 setInterval(poll, 3000);
+// 后台标签页会被浏览器节流，回前台/聚焦时补刷一次
+document.addEventListener('visibilitychange', () => { if(!document.hidden) poll(); });
+window.addEventListener('focus', poll);
 </script>
 </body>
 </html>`
