@@ -8,7 +8,7 @@ import (
 // externalXrayConfigs 是其它工具装的系统级 Xray 配置，home-broadband 自己不写，
 // 但要避开它们占用的入站端口，免得两边端口撞车、Xray 起不来。
 //
-// 目前覆盖 byJoey/xray-cf-lite：它把 Xray 装成系统服务，
+// 例如其它工具把 Xray 装成系统服务，
 // 配置固定落在 /usr/local/etc/xray/config.json。
 var externalXrayConfigs = []string{
 	"/usr/local/etc/xray/config.json",
