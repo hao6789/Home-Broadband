@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
 // version 由构建时通过 -ldflags 注入。
@@ -174,6 +175,7 @@ func main() {
 	mux.HandleFunc("/api/settings", apiSettings(auth, srv))
 	mux.HandleFunc("/api/update/check", apiUpdateCheck)
 	mux.HandleFunc("/api/update/apply", apiUpdateApply)
+	mux.HandleFunc("/api/restart", apiRestart)
 
 	log.Printf("管理界面: http://<本机IP>%s%s/", webCfg.listenAddrString(), currentBasePath())
 	log.Printf("SOCKS5 端口在 %d-%d 之间随机分配", randPortMin, randPortMax)
@@ -422,6 +424,20 @@ func apiUpdateApply(w http.ResponseWriter, r *http.Request) {
 	}
 	// 先把响应发回去，restartSelf 已排在延迟后触发
 	writeJSON(w, http.StatusOK, map[string]any{"ok": true, "restarting": true, "latest": st.Latest})
+}
+
+// apiRestart 重启面板服务：先把响应发回去，再延迟触发 restartSelf，
+// 复用更新流程的重启路径（systemd/openrc/自我 exec）。
+func apiRestart(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "用 POST"})
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "正在重启"})
+	go func() {
+		time.Sleep(800 * time.Millisecond)
+		restartSelf()
+	}()
 }
 
 // apiExits 返回主界面需要的一切：出口以及挂在它上面的入站。
