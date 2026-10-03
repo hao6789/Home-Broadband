@@ -191,6 +191,8 @@ label.chk input{margin:0;accent-color:var(--accent);width:15px;height:15px}
 /* ===== 节点视图 ===== */
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
   padding:14px 18px;margin-bottom:12px;box-shadow:var(--shadow)}
+.card.narrow{max-width:720px;padding:22px 24px}
+.formfoot{display:flex;align-items:center;gap:10px;margin-top:22px;padding-top:18px;border-top:1px solid var(--border)}
 .nghead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
 .nghead b{font-size:15px}
 .rgexit{border-top:1px solid var(--border);padding:6px 0 4px;margin-top:6px}
@@ -332,12 +334,12 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
         <svg viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3.5 6h.01"/><path d="M3.5 12h.01"/><path d="M3.5 18h.01"/></svg>
         <span class="nlbl">节点</span><span class="badge" id="navNcount"></span>
       </button>
+      <button data-view="settings">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        <span class="nlbl">设置</span>
+      </button>
     </nav>
     <div class="side-foot">
-      <button class="iconbtn" id="themeBtn" title="主题"></button>
-      <button class="iconbtn" id="settingsBtn" title="设置">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
       <a class="iconbtn ghlink" href="https://github.com/hao6789/Home-Broadband" target="_blank" rel="noopener" title="GitHub">
         <svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
       </a>
@@ -349,6 +351,7 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
       <h1 id="viewTitle">总览</h1>
       <span class="dim small" id="panel"></span>
       <span class="spacer"></span>
+      <button class="iconbtn" id="themeBtn" title="主题"></button>
       <button id="newnode">
         <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h10"/></svg>
         新建节点
@@ -381,6 +384,51 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
           </button>
         </div>
         <div id="list"></div>
+      </section>
+
+      <section id="view-settings" hidden>
+        <div class="card narrow">
+          <label class="f"><span>访问口令</span>
+            <input id="setPw" type="password" spellcheck="false" autocomplete="new-password" placeholder="留空则不改"></label>
+          <div class="hint">改完只影响新登录，当前这个浏览器不会被踢下线。</div>
+
+          <label class="f" style="margin-top:18px"><span>访问路径</span>
+            <input id="setPath" type="text" spellcheck="false" placeholder="留空则去掉路径前缀"></label>
+          <div class="hint" id="setPathHint">界面挂在这个路径下，扫端口的探不到。只能用字母数字和 - _。</div>
+
+          <label class="f" style="margin-top:18px"><span>节点后端</span>
+            <select id="setBackend"></select></label>
+          <div class="hint" id="setBackendHint">节点从哪来。装了 3x-ui 就能直接接管，没有就用自建。</div>
+
+          <label class="chk" style="margin-top:18px"><input type="checkbox" id="setResi"> 只用家宽节点</label>
+          <div class="hint" id="setResiHint">vpngate 里混着一批它自己的机房机器，出口一眼看得出是数据中心。勾着就只挑志愿者家宽。</div>
+
+          <div class="setrow">
+            <label class="f" style="margin:0"><span>监听端口</span>
+              <input id="setPort" type="text" inputmode="numeric" spellcheck="false"></label>
+            <label class="f" style="margin:0"><span>本地监听地址</span>
+              <select id="setListen">
+                <option value="0.0.0.0">所有网卡（0.0.0.0）</option>
+                <option value="127.0.0.1">仅本机（127.0.0.1）</option>
+              </select></label>
+          </div>
+          <div class="hint bad" id="setPortHint">改端口或监听地址会切换监听，保存后要用新地址重新打开界面。</div>
+
+          <div class="updsec">
+            <div class="updrow">
+              <div class="updver">版本 <b id="updCur">-</b><span id="updLatest"></span></div>
+              <span class="spacer"></span>
+              <button id="updCheck">检查更新</button>
+              <button class="primary" id="updApply" hidden>更新到 <span id="updApplyVer"></span></button>
+            </div>
+            <div class="updnotes" id="updNotes" hidden></div>
+          </div>
+
+          <div class="formfoot">
+            <span class="spacer"></span>
+            <button class="primary" id="setSave">保存设置</button>
+          </div>
+        </div>
       </section>
 
       <section id="view-nodes" hidden>
@@ -619,60 +667,6 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
   </div>
 </div>
 
-<div class="modal" id="settings">
-  <div class="sheet">
-    <div class="head">
-      <h2>设置</h2>
-      <span class="spacer"></span>
-      <button class="iconbtn" data-close="settings" title="关闭">
-        <svg viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-      </button>
-    </div>
-    <div class="body">
-      <label class="f"><span>访问口令</span>
-        <input id="setPw" type="password" spellcheck="false" autocomplete="new-password" placeholder="留空则不改"></label>
-      <div class="hint">改完只影响新登录，当前这个浏览器不会被踢下线。</div>
-
-      <label class="f" style="margin-top:18px"><span>访问路径</span>
-        <input id="setPath" type="text" spellcheck="false" placeholder="留空则去掉路径前缀"></label>
-      <div class="hint" id="setPathHint">界面挂在这个路径下，扫端口的探不到。只能用字母数字和 - _。</div>
-
-      <label class="f" style="margin-top:18px"><span>节点后端</span>
-        <select id="setBackend"></select></label>
-      <div class="hint" id="setBackendHint">节点从哪来。装了 3x-ui 就能直接接管，没有就用自建。</div>
-
-      <label class="chk" style="margin-top:18px"><input type="checkbox" id="setResi"> 只用家宽节点</label>
-      <div class="hint" id="setResiHint">vpngate 里混着一批它自己的机房机器，出口一眼看得出是数据中心。勾着就只挑志愿者家宽。</div>
-
-      <div class="setrow">
-        <label class="f" style="margin:0"><span>监听端口</span>
-          <input id="setPort" type="text" inputmode="numeric" spellcheck="false"></label>
-        <label class="f" style="margin:0"><span>本地监听地址</span>
-          <select id="setListen">
-            <option value="0.0.0.0">所有网卡（0.0.0.0）</option>
-            <option value="127.0.0.1">仅本机（127.0.0.1）</option>
-          </select></label>
-      </div>
-      <div class="hint bad" id="setPortHint">改端口或监听地址会切换监听，保存后要用新地址重新打开界面。</div>
-
-      <div class="updsec">
-        <div class="updrow">
-          <div class="updver">版本 <b id="updCur">-</b><span id="updLatest"></span></div>
-          <span class="spacer"></span>
-          <button id="updCheck">检查更新</button>
-          <button class="primary" id="updApply" hidden>更新到 <span id="updApplyVer"></span></button>
-        </div>
-        <div class="updnotes" id="updNotes" hidden></div>
-      </div>
-    </div>
-    <div class="foot">
-      <span class="spacer"></span>
-      <button data-close="settings">取消</button>
-      <button class="primary" id="setSave">保存</button>
-    </div>
-  </div>
-</div>
-
 <div class="toast" id="toast"></div>
 
 <script>
@@ -707,16 +701,17 @@ $('#themeBtn').onclick = () => {
 applyTheme(themeMode());
 
 /* ---- 视图切换：总览 / 出口 / 节点 ---- */
-const VIEW_TITLES = {dash:'总览', exits:'出口', nodes:'节点'};
+const VIEW_TITLES = {dash:'总览', exits:'出口', nodes:'节点', settings:'设置'};
 function switchView(v){
   if(!VIEW_TITLES[v]) v = 'dash';
   document.querySelectorAll('.nav button').forEach(b =>
     b.classList.toggle('on', b.dataset.view === v));
-  ['dash', 'exits', 'nodes'].forEach(k => { $('#view-' + k).hidden = (k !== v); });
+  ['dash', 'exits', 'nodes', 'settings'].forEach(k => { $('#view-' + k).hidden = (k !== v); });
   $('#viewTitle').textContent = VIEW_TITLES[v];
   // 右上角按钮跟随页面：出口页只留新建出口，节点页只留新建节点，总览页两个都留
-  $('#newexit').style.display = (v === 'nodes') ? 'none' : '';
-  $('#newnode').style.display = (v === 'exits') ? 'none' : '';
+  $('#newexit').style.display = (v === 'nodes' || v === 'settings') ? 'none' : '';
+  $('#newnode').style.display = (v === 'exits' || v === 'settings') ? 'none' : '';
+  if(v === 'settings') loadSettings();
   try{ localStorage.setItem('hb-view', v); }catch(e){}
 }
 document.querySelector('.nav').addEventListener('click', e => {
@@ -1556,11 +1551,10 @@ async function loadBackendModes(){
   }
 }
 
-$('#settingsBtn').onclick = async () => {
+async function loadSettings(){
   $('#setPw').value = '';
   $('#setPath').value = '';
   $('#setPathHint').textContent = '读取中…';
-  openModal('settings');
   loadBackendModes();
   try{
     const s = await api('/api/settings');
@@ -1679,7 +1673,6 @@ $('#setSave').onclick = async e => {
           + (np ? '/' + np : '') + '/';
         return;
       }
-      closeModal('settings');
       poll();
     }
   }catch(err){ toast(err.message, true); }
