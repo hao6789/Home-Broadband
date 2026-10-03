@@ -3,7 +3,7 @@
 home-broadband 拉节点列表时直连失败的兜底。部署在 Cloudflare Workers 上，
 只转发 VPN Gate 的节点列表接口，不是通用代理。
 
-官方部署在 `https://p.xy.kg/vpngate`，home-broadband 默认就用它，不需要自己搭。
+官方部署在 `https://h.fch.workers.dev/vpngate`，home-broadband 默认就用它，不需要自己搭。
 想换成自己的，按下面来。
 
 ## 自己部署
