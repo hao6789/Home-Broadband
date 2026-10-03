@@ -30,10 +30,31 @@ bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/
 
 常用操作也可以直接带参数：`h info` 看连接信息，`h list` 看隧道，`h update` 更新，`h uninstall` 卸载。
 
-## ❓ 常见问题
+## ☁️ 反代 Worker
 
-**直连 vpngate.net 失败？**
-内置 Cloudflare Worker 反代兜底，默认已启用。想用自己的见 [worker/worker.js](worker/worker.js)，设 `HOMEBROADBAND_VPNGATE_MIRROR` 环境变量即可。
+拉节点列表时直连失败的兜底，部署在 Cloudflare Workers 上，只转发 VPN Gate 的节点列表接口，不是通用代理。
+
+默认用 `https://h.fch.workers.dev/vpngate`，开箱即用，不需要自己搭。
+
+### 自己部署
+
+1. Cloudflare 控制台建一个 Worker，把 `worker/worker.js` 的内容贴进去
+2. Settings → Variables 加一个 Secret，名字 `ACCESS_KEY`，值随便一串随机字符
+3. 绑一个自己的域名
+4. 给 home-broadband 设两个环境变量：
+
+```
+HOMEBROADBAND_VPNGATE_MIRROR=https://你的域名/vpngate
+HOMEBROADBAND_VPNGATE_MIRROR_KEY=你刚才设的 ACCESS_KEY
+```
+
+`HOMEBROADBAND_VPNGATE_MIRROR` 设成空字符串就是彻底关掉兜底，只走直连。
+
+### 关于那个 key
+
+只是让爬虫和端口扫描器扫到域名时看到 404，别把 Worker 当免费流量白嫖。home-broadband 是开源的，密钥就写在源码里，这不是安全措施，别指望它挡住有心人。
+
+## ❓ 常见问题
 
 **节点连不上？**
 VPN Gate 是志愿者节点，下线/满员是常态，连不上会自动顺着同地区候选往下试。
