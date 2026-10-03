@@ -30,7 +30,7 @@ func TestFetchNodesUsesDirectWhenHealthy(t *testing.T) {
 	}))
 	defer mirror.Close()
 
-	t.Setenv("FANOUT_VPNGATE_MIRROR", mirror.URL)
+	t.Setenv("HOMEBROADBAND_VPNGATE_MIRROR", mirror.URL)
 	nodes, err := fetchNodesWith(direct.URL, 5*time.Second)
 	if err != nil {
 		t.Fatalf("直连应该成功: %v", err)
@@ -51,13 +51,13 @@ func TestFetchNodesFallsBackToMirror(t *testing.T) {
 	defer direct.Close()
 	gotKey := ""
 	mirror := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotKey = r.Header.Get("X-Fanout-Key")
+		gotKey = r.Header.Get("X-Home-Broadband-Key")
 		fmt.Fprint(w, sampleNodeCSV("mirror-node"))
 	}))
 	defer mirror.Close()
 
-	t.Setenv("FANOUT_VPNGATE_MIRROR", mirror.URL)
-	t.Setenv("FANOUT_VPNGATE_MIRROR_KEY", "test-key")
+	t.Setenv("HOMEBROADBAND_VPNGATE_MIRROR", mirror.URL)
+	t.Setenv("HOMEBROADBAND_VPNGATE_MIRROR_KEY", "test-key")
 	nodes, err := fetchNodesWith(direct.URL, 5*time.Second)
 	if err != nil {
 		t.Fatalf("反代应该兜住: %v", err)
@@ -81,7 +81,7 @@ func TestFetchNodesFallsBackOnGarbageBody(t *testing.T) {
 	}))
 	defer mirror.Close()
 
-	t.Setenv("FANOUT_VPNGATE_MIRROR", mirror.URL)
+	t.Setenv("HOMEBROADBAND_VPNGATE_MIRROR", mirror.URL)
 	nodes, err := fetchNodesWith(direct.URL, 5*time.Second)
 	if err != nil {
 		t.Fatalf("内容异常时应该回落: %v", err)
@@ -98,7 +98,7 @@ func TestFetchNodesMirrorDisabled(t *testing.T) {
 	}))
 	defer direct.Close()
 
-	t.Setenv("FANOUT_VPNGATE_MIRROR", "")
+	t.Setenv("HOMEBROADBAND_VPNGATE_MIRROR", "")
 	if _, err := fetchNodesWith(direct.URL, 5*time.Second); err == nil {
 		t.Fatal("关掉反代后应该直接失败")
 	}

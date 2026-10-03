@@ -64,7 +64,7 @@ func fetchLatestRelease() (*releaseInfo, error) {
 		return nil, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "fanout-updater")
+	req.Header.Set("User-Agent", "home-broadband-updater")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -150,7 +150,7 @@ func applyUpdate() error {
 	}
 
 	arch := assetArch()
-	assetName := fmt.Sprintf("fanout-linux-%s.tar.gz", arch)
+	assetName := fmt.Sprintf("home-broadband-linux-%s.tar.gz", arch)
 	var assetURL, sumsURL string
 	for _, a := range rel.Assets {
 		switch a.Name {
@@ -164,7 +164,7 @@ func applyUpdate() error {
 		return fmt.Errorf("最新版里找不到适配 %s 的包", arch)
 	}
 
-	tmp, err := os.MkdirTemp("", "fanout-update-")
+	tmp, err := os.MkdirTemp("", "home-broadband-update-")
 	if err != nil {
 		return err
 	}
@@ -182,8 +182,8 @@ func applyUpdate() error {
 		}
 	}
 
-	newBin := filepath.Join(tmp, "fanout")
-	if err := extractBinary(tarPath, "fanout", newBin); err != nil {
+	newBin := filepath.Join(tmp, "home-broadband")
+	if err := extractBinary(tarPath, "home-broadband", newBin); err != nil {
 		return fmt.Errorf("解包失败: %w", err)
 	}
 
@@ -219,7 +219,7 @@ func downloadFile(url, dst string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "fanout-updater")
+	req.Header.Set("User-Agent", "home-broadband-updater")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return err
@@ -336,20 +336,20 @@ func copyFileMode(src, dst string, mode os.FileMode) error {
 	return out.Close()
 }
 
-// restartSelf 通过 init 系统重启 fanout 服务，拉起刚替换的新二进制。
+// restartSelf 通过 init 系统重启 home-broadband 服务，拉起刚替换的新二进制。
 // systemd / openrc 各一套；都不可用时退回直接自我 exec。
 func restartSelf() {
 	if hasCmd("systemctl") && dirExists("/run/systemd/system") {
-		_ = exec.Command("systemctl", "restart", "fanout").Start()
+		_ = exec.Command("systemctl", "restart", "home-broadband").Start()
 		return
 	}
 	if hasCmd("rc-service") {
-		_ = exec.Command("rc-service", "fanout", "restart").Start()
+		_ = exec.Command("rc-service", "home-broadband", "restart").Start()
 		return
 	}
 	// 没有 init 系统托管：直接退出，让外部守护（若有）拉起；
 	// 没有守护就只能等下次手动启动。日志留个痕。
-	fmt.Println("fanout: 已替换二进制，但未检测到 systemd/openrc，请手动重启服务")
+	fmt.Println("home-broadband: 已替换二进制，但未检测到 systemd/openrc，请手动重启服务")
 }
 
 func hasCmd(name string) bool {

@@ -16,7 +16,7 @@ const indexHTML = `<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>fanout</title>
+<title>home-broadband</title>
 <style>
 :root{
   --bg:#12151a; --panel:#181c23; --line:#262c36; --text:#dde3ec;
@@ -193,7 +193,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
 </head>
 <body>
 <header>
-  <h1>fanout</h1>
+  <h1>home-broadband</h1>
   <span class="count" id="panel"></span>
   <span class="spacer"></span>
   <button class="icon" id="settingsBtn" title="设置">
@@ -574,10 +574,10 @@ async function copy(text){
 let view = {exits:[], direct:[], panel:'', backend:'', public_ip:''};
 let inbounds = [];
 
-// 自建模式下入站由 fanout 自己管，界面要提供新建入口；
+// 自建模式下入站由 home-broadband 自己管，界面要提供新建入口；
 // 接管 3x-ui 时入站归面板管，这里只读不写。
 function isNative(){ return view.backend === 'native'; }
-// xray-cf-lite 模式下节点归它管，fanout 只改路由，界面不给新建入口
+// xray-cf-lite 模式下节点归它管，home-broadband 只改路由，界面不给新建入口
 function isXCL(){ return view.backend === 'xray-cf-lite'; }
 const BACKEND_NAME = {'native':'自建 Xray', '3x-ui':'3x-ui', 'xray-cf-lite':'xray-cf-lite'};
 function backendName(){ return BACKEND_NAME[view.backend] || '3x-ui'; }
@@ -627,7 +627,7 @@ function renderExits(){
 }
 
 // 停掉出口后它的入站会留在面板里。这些入站现在走直连，
-// 用户既看不出它们和 fanout 的关系，也没有清理入口，所以单独列出来。
+// 用户既看不出它们和 home-broadband 的关系，也没有清理入口，所以单独列出来。
 function renderOrphans(){
   const box = $('#orphans');
   const list = view.direct || [];
@@ -680,9 +680,9 @@ async function poll(){
     $('#panel').textContent = view.panel
       ? (backendName() + ': ' + view.panel)
       : (view.panel_info || '');
-    // xray-cf-lite 的节点由它自己生成，fanout 这边只管把它们导到哪条出口
+    // xray-cf-lite 的节点由它自己生成，home-broadband 这边只管把它们导到哪条出口
     $('#newnode').hidden = isXCL();
-    // 链接由 xray-cf-lite 的订阅体系发，fanout 这边导不出来
+    // 链接由 xray-cf-lite 的订阅体系发，home-broadband 这边导不出来
     $('#exportAll').hidden = isXCL();
     renderExits();
     renderOrphans();
@@ -1154,7 +1154,7 @@ function socksURL(host, port, user, pass){
   return 'socks5://' + user + ':' + pass + '@' + host + ':' + port;
 }
 
-// SOCKS5 端口监听在母机（跑 fanout 的这台服务器）上，客户端要连的是母机的
+// SOCKS5 端口监听在母机（跑 home-broadband 的这台服务器）上，客户端要连的是母机的
 // 公网 IPv4，流量再从出口 IP 出去。出口 IP 是"出去以后"的地址，不能当连接地址。
 // public_ip 是后端探测到的母机公网地址；探测不到才退回访问面板用的主机名。
 function credHost(e){

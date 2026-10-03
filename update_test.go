@@ -47,11 +47,11 @@ func TestExtractBinary(t *testing.T) {
 	tgz := filepath.Join(dir, "pkg.tar.gz")
 	writeTarGz(t, tgz, map[string]string{
 		"install.sh": "echo hi",
-		"fanout":     "BINARY-CONTENT",
+		"home-broadband":     "BINARY-CONTENT",
 		"README.md":  "readme",
 	})
-	out := filepath.Join(dir, "fanout-extracted")
-	if err := extractBinary(tgz, "fanout", out); err != nil {
+	out := filepath.Join(dir, "home-broadband-extracted")
+	if err := extractBinary(tgz, "home-broadband", out); err != nil {
 		t.Fatalf("extractBinary: %v", err)
 	}
 	blob, _ := os.ReadFile(out)
@@ -67,9 +67,9 @@ func TestSha256FromList(t *testing.T) {
 	dir := t.TempDir()
 	list := filepath.Join(dir, "checksums.txt")
 	os.WriteFile(list, []byte(
-		"abc123  fanout-linux-amd64.tar.gz\n"+
-			"def456  fanout-linux-arm64.tar.gz\n"), 0644)
-	got, err := sha256FromList(list, "fanout-linux-arm64.tar.gz")
+		"abc123  home-broadband-linux-amd64.tar.gz\n"+
+			"def456  home-broadband-linux-arm64.tar.gz\n"), 0644)
+	got, err := sha256FromList(list, "home-broadband-linux-arm64.tar.gz")
 	if err != nil || got != "def456" {
 		t.Fatalf("sha256FromList => %q %v", got, err)
 	}

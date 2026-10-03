@@ -17,21 +17,21 @@ import (
 const vpngateAPI = "https://www.vpngate.net/api/iphone/"
 
 // vpngateMirror 是直连拿不到节点列表时的兜底（Cloudflare Worker 反代）。
-// 用 FANOUT_VPNGATE_MIRROR 可以换成自己的地址，设成空字符串就只走直连。
+// 用 HOMEBROADBAND_VPNGATE_MIRROR 可以换成自己的地址，设成空字符串就只走直连。
 const vpngateMirror = "https://p.xy.kg/vpngate"
 
 // mirrorKey 只是让反代不被爬虫和端口扫描白嫖，不是安全边界。
 const mirrorKey = "8rhIFzFKRJMFAe-xP5OQPclDEvSjKlHo"
 
 func mirrorURL() string {
-	if v, ok := os.LookupEnv("FANOUT_VPNGATE_MIRROR"); ok {
+	if v, ok := os.LookupEnv("HOMEBROADBAND_VPNGATE_MIRROR"); ok {
 		return strings.TrimSpace(v)
 	}
 	return vpngateMirror
 }
 
 func mirrorAccessKey() string {
-	if v, ok := os.LookupEnv("FANOUT_VPNGATE_MIRROR_KEY"); ok {
+	if v, ok := os.LookupEnv("HOMEBROADBAND_VPNGATE_MIRROR_KEY"); ok {
 		return strings.TrimSpace(v)
 	}
 	return mirrorKey
@@ -111,7 +111,7 @@ func fetchNodesFrom(url, key string, timeout time.Duration) ([]Node, error) {
 		return nil, fmt.Errorf("拉取节点列表失败: %w", err)
 	}
 	if key != "" {
-		req.Header.Set("X-Fanout-Key", key)
+		req.Header.Set("X-Home-Broadband-Key", key)
 	}
 	resp, err := client.Do(req)
 	if err != nil {
