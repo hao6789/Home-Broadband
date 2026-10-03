@@ -1,128 +1,86 @@
 name: release
 
-# main 每次推送自动发版，版本号依次上升。
-# 不想发版时，commit 信息里带 [skip release] 即可跳过。
+# 手动发版：推 v* tag 或手动触发。不随 main 推送自动发版，
+# 免得写一半的代码被发出去了。
 on:
   push:
-    branches: [main]
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 permissions:
   contents: write
 
-# 串行跑：避免两次推送同时算出同一个版本号
-concurrency:
-  group: auto-release
-  cancel-in-progress: false
-
 jobs:
-  version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.ver.outputs.version }}
-      previous: ${{ steps.ver.outputs.previous }}
-      skip: ${{ steps.ver.outputs.skip }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - id: ver
-        run: |
-          # 只看标题行：正文里提到 [skip release] 也不算（比如介绍这个功能的提交）
-          if git log -1 --pretty=%s | grep -qi '\[skip release\]'; then
-            echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "提交信息含 [skip release]，跳过发版"
-            exit 0
-          fi
-          echo "skip=false" >> "$GITHUB_OUTPUT"
-          git fetch --tags origin
-          latest=$(git tag -l 'v*' --sort=-v:refname | head -1)
-          echo "previous=${latest}" >> "$GITHUB_OUTPUT"
-          if [ -z "$latest" ]; then
-            ver="v0.1.0"
-            major=0; minor=1; patch=0
-          else
-            nums=${latest#v}
-            IFS='.' read -r major minor patch <<< "$nums"
-            [[ "$major" =~ ^[0-9]+$ ]] || major=0
-            [[ "$minor" =~ ^[0-9]+$ ]] || minor=0
-            [[ "$patch" =~ ^[0-9]+$ ]] || patch=0
-            patch=$((patch + 1))
-            ver="v${major}.${minor}.${patch}"
-          fi
-          # 兜底：tag 已存在就继续往上加
-          for _ in 1 2 3 4 5; do
-            git ls-remote --tags origin | grep -q "refs/tags/${ver}$" || break
-            patch=$((patch + 1))
-            ver="v${major}.${minor}.${patch}"
-          done
-          echo "version=$ver" >> "$GITHUB_OUTPUT"
-          echo "上个版本: ${latest:-无}，新版本: $ver"
-
   build:
-    needs: version
-    if: needs.version.outputs.skip != 'true'
     runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
           - goarch: amd64
           - goarch: arm64
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
+
       - name: 编译
         env:
           GOOS: linux
           GOARCH: ${{ matrix.goarch }}
           CGO_ENABLED: '0'
         run: |
-          VERSION="${{ needs.version.outputs.version }}"
+          VERSION="${GITHUB_REF_NAME:-dev}"
           go build -trimpath -ldflags "-s -w -X main.version=${VERSION}" \
             -o home-broadband .
+
       - name: 打包
         run: |
           tar czf "home-broadband-linux-${{ matrix.goarch }}.tar.gz" \
             home-broadband scripts/install.sh scripts/h.sh deploy/home-broadband.service README.md
+
       - uses: actions/upload-artifact@v4
         with:
           name: home-broadband-linux-${{ matrix.goarch }}
           path: home-broadband-linux-${{ matrix.goarch }}.tar.gz
 
   release:
-    needs: [version, build]
+    needs: build
     runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: 打 tag
-        run: |
-          git tag ${{ needs.version.outputs.version }}
-          git push origin ${{ needs.version.outputs.version }}
+
       - uses: actions/download-artifact@v4
         with:
           merge-multiple: true
+
       - name: 生成校验和
         run: sha256sum home-broadband-linux-*.tar.gz > checksums.txt
+
       - name: 写中文更新说明
         run: |
-          prev="${{ needs.version.outputs.previous }}"
+          cur="${GITHUB_REF_NAME}"
+          prev=$(git tag -l 'v*' --sort=-v:refname | grep -v "^${cur}$" | head -1)
           {
             echo "## 更新内容"
             echo
             if [ -n "$prev" ]; then
-              git log --pretty='- %s' "${prev}..HEAD" | grep -v '\[skip release\]' || true
+              git log --pretty='- %s' "${prev}..${cur}"
             else
-              git log --pretty='- %s' | head -20
+              git log --pretty='- %s' "$cur" | head -20
             fi
           } > release_notes.txt
           cat release_notes.txt
+
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ needs.version.outputs.version }}
+          tag_name: ${{ github.ref_name }}
           body_path: release_notes.txt
           files: |
             home-broadband-linux-*.tar.gz
