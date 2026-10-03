@@ -28,6 +28,19 @@ bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/
 
 `h` 打开管理菜单：启停、日志、隧道列表、改端口/口令、更新、卸载。健康检查每 10 秒一次，隧道异常自动换节点重连，端口和槽位不变。
 
+## 反代 Worker（可选）
+
+直连 `vpngate.net` 失败时的兜底：一个 Cloudflare Worker，只转发节点列表接口，不是通用代理。默认已配好，开箱即用。
+
+想用自己的：把 `worker/worker.js` 贴进 Cloudflare，新建 `ACCESS_KEY`，绑域名，然后设环境变量：
+
+```
+HOMEBROADBAND_VPNGATE_MIRROR=https://你的域名/vpngate
+HOMEBROADBAND_VPNGATE_MIRROR_KEY=你的 ACCESS_KEY
+```
+
+设成空字符串则彻底关掉兜底，只走直连。key 只是防扫描白嫖，不是安全措施。
+
 ## 已知限制
 
 - VPN Gate 是志愿者节点，不少已下线或满员，连不上会自动顺着同地区候选往下试。
