@@ -15,7 +15,7 @@ func withInstance(t *testing.T, tag string, base int) {
 	t.Cleanup(func() { instTag, instBase = pTag, pBase })
 }
 
-// 默认工作目录必须保持老名字，否则升级上来的机器会认不出自己之前建的 netns，
+// 默认工作目录的名字必须稳定且不带实例标识，否则重启后认不出自己建的 netns，
 // 留下一堆没人清理的残留。
 func TestDefaultWorkDirKeepsLegacyNames(t *testing.T) {
 	pTag, pBase := instTag, instBase
@@ -29,15 +29,15 @@ func TestDefaultWorkDirKeepsLegacyNames(t *testing.T) {
 	}
 
 	tn := &Tunnel{Slot: 3}
-	if got := tn.nsName(); got != "fo3" {
-		t.Fatalf("netns 名应与老版本一致，实际 %q", got)
+	if got := tn.nsName(); got != "hb3" {
+		t.Fatalf("默认实例 netns 名应稳定为 hb3，实际 %q", got)
 	}
 	if got := tn.subnet(); got != "10.99.3" {
 		t.Fatalf("网段应与老版本一致，实际 %q", got)
 	}
 	veth, peer := tn.vethNames()
-	if veth != "fov3" || peer != "fop3" {
-		t.Fatalf("网卡名应与老版本一致，实际 %q/%q", veth, peer)
+	if veth != "hbv3" || peer != "hbp3" {
+		t.Fatalf("默认实例网卡名应稳定为 hbv3/hbp3，实际 %q/%q", veth, peer)
 	}
 	// 带结尾斜杠、相对写法也算默认目录
 	if err := initInstance(defaultWorkDir + "/"); err != nil {
@@ -68,7 +68,7 @@ func TestOtherWorkDirGetsOwnNames(t *testing.T) {
 	}
 
 	tn := &Tunnel{Slot: 3}
-	if tn.nsName() == "fo3" {
+	if tn.nsName() == "hb3" {
 		t.Fatal("netns 名和默认实例撞了")
 	}
 	if tn.subnet() == "10.99.3" {
