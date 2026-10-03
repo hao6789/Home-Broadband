@@ -106,7 +106,7 @@ func configurePanel(workDir, mode string) {
 			mode = strings.TrimSpace(string(blob))
 		}
 	}
-	// 旧版本残留的未知模式（比如已删除的 xray-cf-lite）一律视为未设置，走自动探测
+	// 未知模式一律视为未设置，走自动探测
 	if mode != "3x-ui" && mode != "native" {
 		mode = ""
 	}
