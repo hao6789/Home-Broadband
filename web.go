@@ -1309,7 +1309,7 @@ $('#crrand').onclick = () => {
   const abc = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   const gen = n => Array.from(crypto.getRandomValues(new Uint8Array(n)))
     .map(v => abc[v % abc.length]).join('');
-  $('#cruser').value = 'fo' + gen(6);
+  $('#cruser').value = 'hb' + gen(6);
   $('#crpass').value = gen(14);
   refreshCredURL();
 };
