@@ -138,6 +138,19 @@ button.primary:hover:not(:disabled){background:var(--accent-d);border-color:tran
   color:var(--dim);box-shadow:none;display:inline-flex;align-items:center;justify-content:center}
 .iconbtn:hover:not(:disabled){color:var(--accent);background:var(--accent-soft);border-color:transparent}
 .iconbtn.danger:hover:not(:disabled){color:var(--bad);background:rgba(248,113,113,.1)}
+.menuwrap{position:relative}
+.menu{position:absolute;top:calc(100% + 8px);right:0;min-width:172px;background:var(--card);
+  border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 36px rgba(0,0,0,.28);
+  padding:6px;z-index:60}
+.menu[hidden]{display:none}
+.menu button{display:flex;width:100%;align-items:center;gap:10px;border:0;background:transparent;
+  box-shadow:none;padding:9px 12px;font-size:13px;font-weight:500;color:var(--text);border-radius:8px}
+.menu button:hover{background:var(--card2);color:var(--text);border-color:transparent}
+.menu button .check{margin-left:auto;color:var(--accent);font-weight:700;visibility:hidden}
+.ghlink{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;border-radius:10px;
+  color:var(--dim);text-decoration:none;font-size:13px}
+.ghlink:hover{background:var(--card);color:var(--text)}
+.ghlink svg{width:16px;height:16px;flex:none}
 svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
 select,input[type=search],input[type=text],input[type=password]{font:inherit;font-size:13px;background:var(--field);
   border:1px solid var(--border);color:var(--text);border-radius:10px;padding:7px 11px;width:100%}
@@ -340,8 +353,9 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
       </button>
     </nav>
     <div class="side-foot">
-      <a class="iconbtn ghlink" href="https://github.com/hao6789/Home-Broadband" target="_blank" rel="noopener" title="GitHub">
+      <a class="ghlink" href="https://github.com/hao6789/Home-Broadband" target="_blank" rel="noopener" title="GitHub">
         <svg viewBox="0 0 24 24" style="fill:currentColor;stroke:none"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+        <span>GitHub</span>
       </a>
     </div>
   </aside>
@@ -351,7 +365,10 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
       <h1 id="viewTitle">总览</h1>
       <span class="dim small" id="panel"></span>
       <span class="spacer"></span>
-      <button class="iconbtn" id="themeBtn" title="主题"></button>
+      <div class="menuwrap">
+        <button class="iconbtn" id="themeBtn" title="主题"></button>
+        <div class="menu" id="themeMenu" hidden></div>
+      </div>
       <button id="newnode">
         <svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h16"/><path d="M4 17h10"/></svg>
         新建节点
@@ -687,17 +704,43 @@ function applyTheme(mode){
   if(mode === 'light' || mode === 'dark') root.setAttribute('data-theme', mode);
   else { root.removeAttribute('data-theme'); mode = 'auto'; }
   try{ localStorage.setItem('hb-theme', mode); }catch(e){}
+  renderThemeMenu();
+}
+/* 主题下拉：三个选项带文字，当前项打勾 */
+function renderThemeMenu(){
+  const cur = themeMode();
   const btn = $('#themeBtn');
   if(btn){
-    btn.innerHTML = THEME_ICONS[mode];
-    btn.title = '主题：' + THEME_LABEL[mode] + '（点击切换）';
+    btn.innerHTML = THEME_ICONS[cur];
+    btn.title = '主题：' + THEME_LABEL[cur] + '（点击选择）';
   }
+  document.querySelectorAll('#themeMenu [data-theme-opt]').forEach(b => {
+    const on = b.dataset.themeOpt === cur;
+    const c = b.querySelector('.check');
+    if(c) c.style.visibility = on ? 'visible' : 'hidden';
+  });
 }
-$('#themeBtn').onclick = () => {
-  const order = ['auto', 'light', 'dark'];
-  applyTheme(order[(order.indexOf(themeMode()) + 1) % order.length]);
-  toast('主题：' + THEME_LABEL[themeMode()]);
+(function buildThemeMenu(){
+  $('#themeMenu').innerHTML = ['auto', 'light', 'dark'].map(k =>
+    '<button data-theme-opt="' + k + '">' + THEME_ICONS[k]
+    + '<span>' + THEME_LABEL[k] + '</span><span class="check">✓</span></button>').join('');
+  document.querySelectorAll('#themeMenu [data-theme-opt]').forEach(b => {
+    b.onclick = () => {
+      applyTheme(b.dataset.themeOpt);
+      $('#themeMenu').hidden = true;
+      toast('主题：' + THEME_LABEL[themeMode()]);
+    };
+  });
+})();
+$('#themeBtn').onclick = e => {
+  e.stopPropagation();
+  const m = $('#themeMenu');
+  m.hidden = !m.hidden;
+  if(!m.hidden) renderThemeMenu();
 };
+document.addEventListener('click', e => {
+  if(!e.target.closest('.menuwrap')) $('#themeMenu').hidden = true;
+});
 applyTheme(themeMode());
 
 /* ---- 视图切换：总览 / 出口 / 节点 ---- */
