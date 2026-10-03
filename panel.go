@@ -152,18 +152,6 @@ func openPanel() (Panel, error) {
 		}
 		panelState.current = n
 		return n, nil
-	case "xray-cf-lite":
-		xc, err := DetectXCL()
-		if err != nil {
-			return nil, fmt.Errorf("指定了 xray-cf-lite 模式但探测失败: %w", err)
-		}
-		panelState.current = xc
-		return xc, nil
-	}
-
-	if xc, err := DetectXCL(); err == nil {
-		panelState.current = xc
-		return xc, nil
 	}
 
 	if x, err := DetectXUI(panelState.workDir); err == nil {
@@ -199,12 +187,6 @@ func currentPanelMode() string {
 func availablePanelModes(workDir string) []map[string]any {
 	modes := []map[string]any{}
 
-	xcOK, xcReason := true, ""
-	if _, err := DetectXCL(); err != nil {
-		xcOK, xcReason = false, err.Error()
-	}
-	modes = append(modes, map[string]any{"mode": "xray-cf-lite", "label": "xray-cf-lite", "available": xcOK, "reason": xcReason})
-
 	xuiOK, xuiReason := true, ""
 	if _, err := DetectXUI(workDir); err != nil {
 		xuiOK, xuiReason = false, err.Error()
@@ -223,7 +205,7 @@ func availablePanelModes(workDir string) []map[string]any {
 // 避免把 home-broadband 卡在一个连不上的后端上。
 func switchPanelMode(mode string) (Panel, error) {
 	switch mode {
-	case "", "3x-ui", "native", "xray-cf-lite":
+	case "", "3x-ui", "native":
 	default:
 		return nil, fmt.Errorf("未知后端模式 %q", mode)
 	}
