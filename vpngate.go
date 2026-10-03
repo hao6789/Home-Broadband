@@ -18,10 +18,10 @@ const vpngateAPI = "https://www.vpngate.net/api/iphone/"
 
 // vpngateMirror 是直连拿不到节点列表时的兜底（Cloudflare Worker 反代）。
 // 用 HOMEBROADBAND_VPNGATE_MIRROR 可以换成自己的地址，设成空字符串就只走直连。
-const vpngateMirror = "https://p.xy.kg/vpngate"
+const vpngateMirror = "https://h.fch.workers.dev/vpngate"
 
 // mirrorKey 只是让反代不被爬虫和端口扫描白嫖，不是安全边界。
-const mirrorKey = "8rhIFzFKRJMFAe-xP5OQPclDEvSjKlHo"
+const mirrorKey = "TmvK6Au0R21RFjD5Ed4P"
 
 func mirrorURL() string {
 	if v, ok := os.LookupEnv("HOMEBROADBAND_VPNGATE_MIRROR"); ok {
