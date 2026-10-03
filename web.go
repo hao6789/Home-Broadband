@@ -478,7 +478,7 @@ textarea:focus{outline:none;border-color:var(--accent)}
 
       <label class="f" style="margin-top:16px"><span>节点后端</span>
         <select id="setBackend"></select></label>
-      <div class="hint" id="setBackendHint">节点从哪来。装了 3x-ui 或 xray-cf-lite 就能直接接管，都没有就用自建。</div>
+      <div class="hint" id="setBackendHint">节点从哪来。装了 3x-ui 就能直接接管，没有就用自建。</div>
 
       <label class="chk" style="margin-top:16px"><input type="checkbox" id="setResi"> 只用家宽节点</label>
       <div class="hint" id="setResiHint">vpngate 里混着一批它自己的机房机器，出口一眼看得出是数据中心。勾着就只挑志愿者家宽。</div>
@@ -577,9 +577,7 @@ let inbounds = [];
 // 自建模式下入站由 home-broadband 自己管，界面要提供新建入口；
 // 接管 3x-ui 时入站归面板管，这里只读不写。
 function isNative(){ return view.backend === 'native'; }
-// xray-cf-lite 模式下节点归它管，home-broadband 只改路由，界面不给新建入口
-function isXCL(){ return view.backend === 'xray-cf-lite'; }
-const BACKEND_NAME = {'native':'自建 Xray', '3x-ui':'3x-ui', 'xray-cf-lite':'xray-cf-lite'};
+const BACKEND_NAME = {'native':'自建 Xray', '3x-ui':'3x-ui'};
 function backendName(){ return BACKEND_NAME[view.backend] || '3x-ui'; }
 
 const STATUS = {up:'已连通', starting:'连接中', failed:'失败', stopped:'已停止'};
@@ -636,8 +634,7 @@ function renderOrphans(){
   box.innerHTML = '<div class="orphan"><div class="top">'
     + '<h3>未绑定出口的入站</h3><span class="count">' + list.length + ' 个，走直连</span>'
     + '<span class="spacer"></span>'
-    + (isXCL() ? ''
-        : '<button data-delorphans="1" title="删除这些入站">' + ICON.trash + '清理</button>')
+    + '<button data-delorphans="1" title="删除这些入站">' + ICON.trash + '清理</button>'
     + '</div>'
     + list.map(i =>
         '<div class="orow">'
@@ -648,10 +645,9 @@ function renderOrphans(){
         + (hasUp
             ? '<select class="obind" data-tag="' + esc(i.tag) + '">' + exitOptions('') + '</select>'
             : '<span class="dim">先开一个出口</span>')
-        + (isXCL() ? ''
-            : '<button class="icon danger" data-delone="' + i.id + '" data-name="'
-              + esc((i.remark || i.protocol) + ' :' + i.port) + '" title="删除这个入站">'
-              + ICON.trash + '</button>')
+        + '<button class="icon danger" data-delone="' + i.id + '" data-name="'
+          + esc((i.remark || i.protocol) + ' :' + i.port) + '" title="删除这个入站">'
+          + ICON.trash + '</button>'
         + '</div>').join('')
     + '</div>';
 }
@@ -680,10 +676,6 @@ async function poll(){
     $('#panel').textContent = view.panel
       ? (backendName() + ': ' + view.panel)
       : (view.panel_info || '');
-    // xray-cf-lite 的节点由它自己生成，home-broadband 这边只管把它们导到哪条出口
-    $('#newnode').hidden = isXCL();
-    // 链接由 xray-cf-lite 的订阅体系发，home-broadband 这边导不出来
-    $('#exportAll').hidden = isXCL();
     renderExits();
     renderOrphans();
   }catch(e){}
@@ -760,12 +752,6 @@ async function loadWizard(){
   }catch(e){ toast('读取地区失败: ' + e.message, true); }
 
   const sel = $('#tpl');
-  // xray-cf-lite 模式不能复制节点，向导退化成"只开出口"，之后在节点详情里挑出口
-  if(isXCL()){
-    $('#tplwrap').hidden = true;
-    sel.innerHTML = '<option value="0">只开出口，不建节点</option>';
-    return;
-  }
   $('#tplwrap').hidden = false;
   try{
     // 已经挂在出口上的多半是上一批复制出来的，拿它当模板会套娃，
@@ -978,8 +964,6 @@ async function openDetail(id){
     const d = await api('/api/xui/detail?id=' + id);
     curDetail = d;
     renderDetail(d);
-    $('#ddel').hidden = isXCL();
-    $('#ddel').disabled = isXCL();
   }catch(err){
     $('#dbody').innerHTML = '<div class="empty">读取失败: ' + esc(err.message) + '</div>';
   }
@@ -1013,8 +997,6 @@ function renderDetail(d){
   }).join('');
 
   $('#dtitle').textContent = (d.remark || '节点') + '　:' + d.port;
-  // xray-cf-lite 的节点归它自己管，这里只留出口选择，改端口/备注/客户端都不给
-  const editable = !isXCL();
   $('#dbody').innerHTML = '<dl class="kv">'
     + '<dt>出口</dt><dd><select id="dbind" data-tag="' + esc(d.tag) + '">'
     +   exitOptions(owner ? owner.host : '') + '</select></dd>'
@@ -1022,7 +1004,7 @@ function renderDetail(d){
     +   (d.tls && d.tls !== 'none' ? '　' + esc(d.tls) : '') + '</dd>'
     + '<dt>监听</dt><dd>' + esc(d.listen || '0.0.0.0') + '</dd>'
     + '</dl>'
-    + (editable ? ('<div class="editbar">'
+    + ('<div class="editbar">'
     +   '<label class="ef"><span>备注</span>'
     +     '<input id="dremark" type="text" value="' + esc(d.remark || '') + '"></label>'
     +   '<label class="ef"><span>端口</span>'
@@ -1035,8 +1017,7 @@ function renderDetail(d){
     + '<div class="chead"><h3>客户端</h3><span class="count">'
     +   (d.clients || []).length + ' 个</span><span class="spacer"></span>'
     +   '<button id="dcadd">' + ICON.plus + '添加</button></div>'
-    + (clients || '<div class="empty">没有客户端</div>'))
-    : '<div class="hint">这个节点由 xray-cf-lite 管，端口、UUID 和分享链接都去它那边改。这里只决定它走哪条出口。</div>');
+    + (clients || '<div class="empty">没有客户端</div>'));
 }
 
 // 未绑定区的出口下拉，选中即绑
@@ -1271,7 +1252,7 @@ async function loadBackendModes(){
     const bad = (m.modes || []).filter(x => !x.available);
     hint.textContent = m.describe
       ? ('当前：' + m.describe + (bad.length ? '。灰掉的是本机没装的。' : ''))
-      : '节点从哪来。装了 3x-ui 或 xray-cf-lite 就能直接接管，都没有就用自建。';
+      : '节点从哪来。装了 3x-ui 就能直接接管，没有就用自建。';
   }catch(err){
     sel.innerHTML = '<option value="">读取失败</option>';
     hint.textContent = err.message;
