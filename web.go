@@ -714,6 +714,9 @@ function switchView(v){
     b.classList.toggle('on', b.dataset.view === v));
   ['dash', 'exits', 'nodes'].forEach(k => { $('#view-' + k).hidden = (k !== v); });
   $('#viewTitle').textContent = VIEW_TITLES[v];
+  // 右上角按钮跟随页面：出口页只留新建出口，节点页只留新建节点，总览页两个都留
+  $('#newexit').style.display = (v === 'nodes') ? 'none' : '';
+  $('#newnode').style.display = (v === 'exits') ? 'none' : '';
   try{ localStorage.setItem('hb-view', v); }catch(e){}
 }
 document.querySelector('.nav').addEventListener('click', e => {
