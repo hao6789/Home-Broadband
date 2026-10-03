@@ -193,8 +193,6 @@ echo "[3/6] 准备 Xray"
 mkdir -p "${WORK_DIR}/bin"
 if command -v /usr/local/x-ui/x-ui >/dev/null 2>&1 || [[ -x /usr/bin/x-ui ]]; then
   echo "      检测到 3x-ui，入站交给面板管，跳过"
-elif [[ -d /etc/xray-cf-lite && -f /usr/local/etc/xray/config.json ]]; then
-  echo "      检测到 xray-cf-lite，入站交给它管，跳过"
 elif [[ -x "${WORK_DIR}/bin/xray" ]]; then
   echo "      已有 $("${WORK_DIR}/bin/xray" version 2>/dev/null | head -1)"
 else
