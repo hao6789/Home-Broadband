@@ -251,6 +251,205 @@ show_links() {
   echo -e "  ${D}用着有问题、或者想要什么功能，提 issue。${N}"
 }
 
+# ── 证书管理：给面板办 HTTPS 证书 ──────────────────────
+ACME_BIN=/root/.acme.sh/acme.sh
+CERT_BASE=/root/cert
+
+# 在 settings.json 里设置字符串字段：有则改、无则加
+json_set() {
+  local f="$1" k="$2" v="$3"
+  if [[ ! -f $f ]]; then
+    printf '{\n  "%s": "%s"\n}\n' "$k" "$v" > "$f"
+    chmod 600 "$f"
+    return
+  fi
+  v=${v//\\/\\\\}; v=${v//\"/\\\"}
+  if grep -q "\"$k\"[[:space:]]*:" "$f"; then
+    sed -i "s|\"$k\"[[:space:]]*:[[:space:]]*\"[^\"]*\"|\"$k\": \"$v\"|" "$f"
+  else
+    awk -v k="$k" -v v="$v" '
+      { l[NR]=$0 }
+      END {
+        n=NR
+        for(i=n;i>=1;i--) if(l[i]!~/^[ \t]*$/){ last=i; break }
+        for(j=last-1;j>=1;j--) if(l[j]!~/^[ \t]*$/){ pl=j; break }
+        if(l[pl]!~/,[ \t]*$/) l[pl]=l[pl] ","
+        for(i=1;i<=n;i++){ if(i==last) print "  \""k"\": \""v"\""; print l[i] }
+      }' "$f" > "$f.new" && mv "$f.new" "$f"
+  fi
+}
+
+# 找 acme.sh：3x-ui 装过就直接复用，没有才自己装
+ensure_acme() {
+  if [[ -x $ACME_BIN ]]; then
+    echo "  找到已有的 acme.sh，直接复用"
+    "$ACME_BIN" --upgrade >/dev/null 2>&1 || true
+    return 0
+  fi
+  echo "  正在安装 acme.sh..."
+  curl -s https://get.acme.sh | sh || { echo -e "  ${R}acme.sh 安装失败${N}"; return 1; }
+  [[ -x $ACME_BIN ]] || { echo -e "  ${R}acme.sh 安装失败${N}"; return 1; }
+  echo "  acme.sh 安装成功"
+}
+
+ensure_socat() {
+  command -v socat >/dev/null && return 0
+  echo "  正在安装 socat..."
+  if command -v apt-get >/dev/null; then
+    apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq socat
+  elif command -v dnf >/dev/null; then dnf install -y -q socat
+  elif command -v yum >/dev/null; then yum install -y -q socat
+  elif command -v apk >/dev/null; then apk add --no-cache socat
+  else return 1; fi
+}
+
+# 从 3x-ui 现有证书里读域名，当申请时的默认值
+default_domain() {
+  local crt
+  crt=$(ls "$CERT_BASE"/*/fullchain.pem 2>/dev/null | head -1)
+  [[ -n $crt ]] || return 0
+  openssl x509 -noout -subject -in "$crt" 2>/dev/null | sed -n 's/.*CN *= *\([^/,]*\).*/\1/p'
+}
+
+cert_domains() {
+  find "$CERT_BASE" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null
+}
+
+cert_apply() {
+  ensure_acme || return
+  ensure_socat || { echo -e "  ${R}socat 安装失败，请手动安装后重试${N}"; return; }
+
+  local domain dflt
+  dflt=$(default_domain)
+  echo
+  if [[ -n $dflt ]]; then
+    read -rp "  域名 (回车用 ${dflt}): " domain
+    [[ -z $domain ]] && domain=$dflt
+  else
+    read -rp "  域名: " domain
+  fi
+  [[ -z $domain ]] && { echo "  已取消"; return; }
+
+  # 预检：域名解析到本机？
+  local myip dip
+  myip=$(curl -s --max-time 6 http://api.ipify.org 2>/dev/null)
+  dip=$(getent hosts "$domain" 2>/dev/null | awk '{print $1}' | head -1)
+  if [[ -n $myip && -n $dip && $myip != "$dip" ]]; then
+    echo -e "  ${Y}警告：域名解析到 ${dip}，本机 IP 是 ${myip}，签发会失败${N}"
+    read -rp "  还是继续吗？[y/N]: " yes
+    [[ ${yes,,} == y ]] || { echo "  已取消"; return; }
+  fi
+  # 预检：80 端口空闲？
+  if ss -tln 2>/dev/null | grep -q ':80 '; then
+    echo -e "  ${Y}警告：80 端口被占用，签发需要空出 80 端口${N}"
+    ss -tlnp 2>/dev/null | grep ':80 ' | head -3 | sed 's/^/    /'
+    read -rp "  还是继续吗？[y/N]: " yes
+    [[ ${yes,,} == y ]] || { echo "  已取消"; return; }
+  fi
+
+  echo "  正在签发证书..."
+  if ! "$ACME_BIN" --issue -d "$domain" --standalone; then
+    echo -e "  ${R}签发失败${N}"; return
+  fi
+
+  local cdir="${CERT_BASE}/${domain}"
+  mkdir -p "$cdir"
+  # 续期后自动重启面板；两个面板用不同域名，各自独立续期互不干扰
+  local reload="systemctl restart $SERVICE 2>/dev/null || rc-service $SERVICE restart"
+  if ! "$ACME_BIN" --install-cert -d "$domain" \
+      --key-file "$cdir/privkey.pem" \
+      --fullchain-file "$cdir/fullchain.pem" \
+      --reloadcmd "$reload"; then
+    echo -e "  ${R}证书安装失败${N}"; return
+  fi
+  chmod 600 "$cdir/privkey.pem"
+
+  json_set "$WORK_DIR/settings.json" tls_cert "$cdir/fullchain.pem"
+  json_set "$WORK_DIR/settings.json" tls_key "$cdir/privkey.pem"
+  svc_restart
+  local port bp
+  port=$(web_port); bp=$(cat "$WORK_DIR/basepath" 2>/dev/null)
+  echo -e "  ${G}证书已启用${N}"
+  echo -e "  面板地址  ${B}https://$(public_ip):${port}/${bp}/${N}"
+}
+
+cert_show() {
+  local found=0 d crt key domain end
+  echo
+  for d in "$CERT_BASE"/*/; do
+    [[ -d $d ]] || continue
+    crt="${d}fullchain.pem"; key="${d}privkey.pem"
+    [[ -f $crt ]] || continue
+    found=1
+    domain=$(basename "$d")
+    end=$(openssl x509 -noout -enddate -in "$crt" 2>/dev/null | cut -d= -f2)
+    echo -e "  域名      ${domain}"
+    echo -e "  证书      ${crt}"
+    if [[ -f $key ]]; then echo -e "  私钥      ${key}"
+    else echo -e "  ${R}私钥缺失${N}"; fi
+    echo -e "  有效期至  ${end}"
+    echo
+  done
+  [[ $found == 0 ]] && echo "  还没有证书，用「申请证书」办一张"
+}
+
+cert_renew() {
+  ensure_acme || return
+  local domains domain
+  domains=$(cert_domains)
+  [[ -z $domains ]] && { echo "  还没有证书"; return; }
+  echo "  已有域名："; echo "$domains" | sed 's/^/    /'
+  read -rp "  输入要续期的域名: " domain
+  [[ -z $domain ]] && { echo "  已取消"; return; }
+  if "$ACME_BIN" --renew -d "$domain" --force; then
+    echo -e "  ${G}续期成功${N}"
+  else
+    echo -e "  ${R}续期失败${N}"
+  fi
+}
+
+cert_revoke() {
+  ensure_acme || return
+  local domains domain yes
+  domains=$(cert_domains)
+  [[ -z $domains ]] && { echo "  还没有证书"; return; }
+  echo "  已有域名："; echo "$domains" | sed 's/^/    /'
+  read -rp "  输入要吊销的域名: " domain
+  [[ -z $domain ]] && { echo "  已取消"; return; }
+  read -rp "  确认吊销 ${domain} 的证书？[y/N]: " yes
+  [[ ${yes,,} == y ]] || { echo "  已取消"; return; }
+  "$ACME_BIN" --revoke -d "$domain" 2>/dev/null
+  rm -rf "${CERT_BASE}/${domain}"
+  # 面板切回 HTTP
+  json_set "$WORK_DIR/settings.json" tls_cert ""
+  json_set "$WORK_DIR/settings.json" tls_key ""
+  svc_restart
+  echo -e "  ${G}已吊销，面板切回 HTTP${N}"
+}
+
+cert_menu() {
+  while true; do
+    clear
+    echo -e "${B}  证书管理${N}  ${D}给面板办 HTTPS 证书${N}"
+    echo
+    echo "   1 申请证书"
+    echo "   2 查看证书"
+    echo "   3 强制续期"
+    echo "   4 吊销证书"
+    echo
+    echo "   0 返回"
+    echo
+    read -rp "  选择: " c
+    case "$c" in
+      1) cert_apply; pause ;;
+      2) cert_show; pause ;;
+      3) cert_renew; pause ;;
+      4) cert_revoke; pause ;;
+      0) return ;;
+    esac
+  done
+}
+
 # 老版本把 -web 写死在服务文件里，和 settings.json 互相拽回旧值。
 # 更新时把端口搬进配置再从服务文件里摘掉，之后只认一处。
 migrate_port_to_settings() {
@@ -330,7 +529,8 @@ menu() {
     echo "   7 改端口    8 改口令    9 改访问路径    10 开机自启"
     echo
     echo -e "  ${D}[ 其他 ]${N}"
-    echo "  11 更新    12 卸载    13 反馈"
+    echo "  11 更新    12 卸载"
+    echo "  13 反馈    14 证书管理"
     echo
     echo "   0 退出"
     echo
@@ -357,6 +557,7 @@ menu() {
         pause ;;
       11) do_update; pause ;;
       13) show_links; pause ;;
+      14) cert_menu ;;
       12) do_uninstall; pause ;;
       0) exit 0 ;;
       *) ;;

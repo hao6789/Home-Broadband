@@ -447,6 +447,15 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
           </div>
           <div class="hint bad" id="setPortHint">改端口或监听地址会切换监听，保存后要用新地址重新打开界面。</div>
 
+          <div class="setrow" style="margin-top:18px">
+            <label class="f" style="margin:0"><span>HTTPS 证书路径</span>
+              <input id="setCert" type="text" spellcheck="false" placeholder="留空则用 HTTP，如 /root/cert/域名/fullchain.pem"></label>
+            <label class="f" style="margin:0"><span>HTTPS 私钥路径</span>
+              <input id="setKey" type="text" spellcheck="false" placeholder="如 /root/cert/域名/privkey.pem"></label>
+          </div>
+          <div class="hint">两个都填启用 HTTPS，改完用 https:// 打开。证书可以用 h 菜单的「证书管理」申请。</div>
+          <div class="hint" id="setTLSInfo" hidden></div>
+
           <div class="updsec">
             <div class="updrow">
               <div class="updver">版本 <b id="updCur">-</b><span id="updLatest"></span></div>
@@ -1672,6 +1681,19 @@ async function loadSettings(){
     $('#setPort').value = s.port || '';
     $('#setListen').value = s.listen_addr || '0.0.0.0';
     $('#setResi').checked = s.residential_only !== false;
+    $('#setCert').value = s.tls_cert || '';
+    $('#setKey').value = s.tls_key || '';
+    const ti = s.tls_info;
+    const tiel = $('#setTLSInfo');
+    if(ti){
+      tiel.hidden = false;
+      tiel.textContent = '证书：' + (ti.cn || '未知域名') + '，有效期至 ' + ti.not_after
+        + '（还剩 ' + ti.days_left + ' 天）';
+      tiel.classList.toggle('bad', ti.days_left < 14);
+    } else {
+      tiel.hidden = true;
+      tiel.classList.remove('bad');
+    }
     $('#setPathHint').textContent = '界面挂在这个路径下，扫端口的探不到。只能用字母数字和 - _。';
     $('#updCur').textContent = s.version || '-';
     $('#updLatest').textContent = '';
@@ -1747,9 +1769,10 @@ $('#updApply').onclick = async e => {
 };
 
 // 端口/监听地址变了要提示用户之后从新地址进；密码/路径可原地生效
-function nextURL(port, listen, path){
+function nextURL(port, listen, path, tls){
   const host = (listen && listen !== '0.0.0.0') ? listen : location.hostname;
-  return location.protocol + '//' + host + ':' + port + (path ? '/' + path : '') + '/';
+  const proto = tls ? 'https:' : location.protocol;
+  return proto + '//' + host + ':' + port + (path ? '/' + path : '') + '/';
 }
 
 $('#setSave').onclick = async e => {
@@ -1762,9 +1785,17 @@ $('#setSave').onclick = async e => {
   if(port) body.port = port;
   body.listen_addr = $('#setListen').value;
   body.residential_only = $('#setResi').checked;
+  const tlsCert = $('#setCert').value.trim();
+  const tlsKey = $('#setKey').value.trim();
+  body.tls_cert = tlsCert;
+  body.tls_key = tlsKey;
+  const tlsOn = !!(tlsCert && tlsKey);
 
   const portChanged = curSettings && (port !== curSettings.port
     || body.listen_addr !== (curSettings.listen_addr || '0.0.0.0'));
+  const tlsChanged = curSettings && (tlsCert !== (curSettings.tls_cert || '')
+    || tlsKey !== (curSettings.tls_key || ''));
+  const addrChanged = portChanged || tlsChanged;
 
   try{
     // 后端和其它设置分属两个接口，先切后端：切失败就别继续，免得用户以为整单都生效了
@@ -1783,11 +1814,11 @@ $('#setSave').onclick = async e => {
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify(body),
     });
-    if(portChanged){
-      const url = nextURL(port, body.listen_addr, body.base_path);
+    if(addrChanged){
+      const url = nextURL(port, body.listen_addr, body.base_path, tlsOn);
       $('#setPortHint').innerHTML = '监听已切换，请从新地址打开：<a href="' + esc(url) + '">' + esc(url) + '</a>';
       toast('监听已切换，用新地址重新打开');
-      // 端口变了当前连接会断，不自动跳转，让用户看清新地址
+      // 端口/协议变了当前连接会断，不自动跳转，让用户看清新地址
     } else {
       toast('已保存');
       // 路径可能变了，重新加载到新路径下
