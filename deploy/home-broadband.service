@@ -1,5 +1,5 @@
 [Unit]
-Description=home-broadband - VPN Gate 出口扇出网关
+Description=home-broadband - VPN Gate 多出口网关
 After=network-online.target
 Wants=network-online.target
 
