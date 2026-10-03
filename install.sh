@@ -160,7 +160,7 @@ if [[ ${#need_cmd[@]} -gt 0 ]]; then
 fi
 
 echo "[2/6] 获取程序"
-REPO="${REPO:-byJoey/fanout}"
+REPO="${REPO:-hao6789/Home-Broadband}"
 ARCH=$(uname -m)
 case "$ARCH" in
   x86_64)  GOARCH=amd64 ;;
@@ -289,5 +289,5 @@ echo "  ────────────────────────
 echo "  交流群  https://t.me/+ft-zI76oovgwNmRh"
 echo "  油管    https://youtube.com/@joeyblog"
 echo "  博客    https://joeyblog.net"
-echo "  项目    https://github.com/byJoey/fanout"
+echo "  项目    https://github.com/hao6789/Home-Broadband"
 echo
