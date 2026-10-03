@@ -455,6 +455,11 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
               <button class="primary" id="updApply" hidden>更新到 <span id="updApplyVer"></span></button>
             </div>
             <div class="updnotes" id="updNotes" hidden></div>
+            <div class="updrow" style="margin-top:10px">
+              <div class="dim small">面板卡住或改了配置没生效，重启面板试试。<br>出口会短暂断开后自动重连。</div>
+              <span class="spacer"></span>
+              <button id="panelRestart">重启面板</button>
+            </div>
           </div>
 
           <div class="formfoot">
@@ -1698,6 +1703,22 @@ $('#updCheck').onclick = async e => {
   }catch(err){ toast(err.message, true); }
   e.target.disabled = false;
   e.target.textContent = '检查更新';
+};
+
+// 重启面板：和 3x-ui 的重启面板一样，服务重启后自动刷新页面
+$('#panelRestart').onclick = async e => {
+  if(!confirm('重启面板？出口会短暂断开后自动重连。')) return;
+  e.target.disabled = true;
+  e.target.textContent = '重启中…';
+  try{
+    await api('/api/restart', {method:'POST'});
+    toast('面板正在重启，几秒后自动刷新');
+    setTimeout(() => location.reload(), 6000);
+  }catch(err){
+    toast(err.message, true);
+    e.target.disabled = false;
+    e.target.textContent = '重启面板';
+  }
 };
 
 // 一键更新：后端下载替换二进制并重启服务，进程重启期间界面会短暂断连
