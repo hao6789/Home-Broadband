@@ -150,13 +150,6 @@ list_tunnels() {
   rm -f "$ck.json"
 }
 
-# Chrome 等浏览器会直接拦截的不安全端口：面板能正常监听，但浏览器打不开（ERR_UNSAFE_PORT）。
-# 完整列表见 Chromium net/base/port_util.cc，Firefox 也有类似限制。
-UNSAFE_PORTS="1 7 9 11 13 15 17 19 20 21 22 23 25 37 42 43 53 77 79 87 95 101 102 103 104 109 110 111 113 115 117 119 123 135 139 143 179 389 465 512 513 514 515 526 530 531 532 540 556 563 587 601 636 993 995 2049 3659 4045 6000 6665 6666 6667 6668 6669"
-is_unsafe_port() {
-  case " $UNSAFE_PORTS " in *" $1 "*) return 0;; *) return 1;; esac
-}
-
 change_port() {
   local cur new
   cur=$(web_port)
@@ -168,11 +161,6 @@ change_port() {
   fi
   if ss -tln 2>/dev/null | grep -q ":${new} "; then
     echo -e "  ${R}端口 ${new} 已被占用${N}"; return
-  fi
-  if is_unsafe_port "$new"; then
-    echo -e "  ${Y}警告：端口 ${new} 在浏览器不安全端口名单里，面板能启动但 Chrome 打不开${N}"
-    read -rp "  还是要用这个端口？[y/N]: " yes
-    [[ ${yes,,} == y ]] || { echo "  已取消"; return; }
   fi
   # 写 settings.json（权威来源），并把服务文件里可能残留的 -web 一并同步，
   # 免得老安装重启后又被写死的旧端口拽回去。
