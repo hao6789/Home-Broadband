@@ -5,7 +5,7 @@
 把 VPN Gate 的公共节点变成本地 SOCKS5 端口：一个端口一个出口 IP。
 再给每个出口挂一个节点链接，客户端连哪个端口就从哪个国家出去。
 
-节点链接有三种管法：同机装了 3x-ui 或 xray-cf-lite 就接管它们的入站，
+节点链接有两种管法：同机装了 3x-ui 就接管它的入站，
 都没装则 home-broadband 自己跑 Xray，建站、改站、发链接都在同一个界面里完成。
 
 ![主界面](https://images.joeyblog.net/2026/7/27/fanout-dashboard.png)
@@ -134,13 +134,8 @@ REALITY 的密钥对和 shortId 自动生成；TLS 不填证书就生成自签�
 接管 3x-ui 和自建这两种模式下，改端口、启停、加删客户端、绑定出口的操作完全一致，
 用起来没有区别。
 
-装了 [xray-cf-lite](https://github.com/byJoey/xray-cf-lite) 的机器会自动接管它生成的
-三个节点。这个模式下节点归 xray-cf-lite 管，home-broadband 只负责给每个节点指定走哪条出口，
-所以界面上不提供新建、删除和改节点的入口——想改端口或 UUID 去 xray-cf-lite 那边改。
-两边共用同一份 Xray 配置，home-broadband 只往里加自己前缀的出站和分流规则，互不覆盖。
-
 后端在设置面板里可以随时切换，本机没装的会置灰并说明原因；也可以用
-`-panel 3x-ui` / `-panel native` / `-panel xray-cf-lite` 启动参数固定。
+`-panel 3x-ui` / `-panel native` 启动参数固定。
 界面里选过之后会记住，重启仍然生效。
 
 ## 运维
