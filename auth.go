@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -22,6 +24,8 @@ type Auth struct {
 	password string
 	mu       sync.RWMutex
 	sessions map[string]time.Time
+	// sessionsPath 是会话落盘文件：重启面板不断登录。
+	sessionsPath string
 	// 按来源 IP 记录登录失败，挡低速凭据喷洒
 	fails map[string]*loginFails
 }
@@ -63,12 +67,48 @@ func NewAuth(dir string) (*Auth, bool, error) {
 		return nil, false, err
 	}
 
-	return &Auth{
-		dir:      dir,
-		password: strings.TrimSpace(string(blob)),
-		sessions: map[string]time.Time{},
-		fails:    map[string]*loginFails{},
-	}, created, nil
+	a := &Auth{
+		dir:          dir,
+		password:     strings.TrimSpace(string(blob)),
+		sessions:     map[string]time.Time{},
+		sessionsPath: filepath.Join(dir, "sessions.json"),
+		fails:        map[string]*loginFails{},
+	}
+	a.loadSessions()
+	return a, created, nil
+}
+
+// loadSessions 从盘上读回未过期的会话，文件坏了就从空开始，不影响启动。
+func (a *Auth) loadSessions() {
+	blob, err := os.ReadFile(a.sessionsPath)
+	if err != nil {
+		return
+	}
+	var saved map[string]time.Time
+	if err := json.Unmarshal(blob, &saved); err != nil {
+		log.Printf("会话文件损坏，从空会话启动: %v", err)
+		return
+	}
+	now := time.Now()
+	for tok, exp := range saved {
+		if now.Before(exp) {
+			a.sessions[tok] = exp
+		}
+	}
+}
+
+// saveSessionsLocked 把会话落盘。调用时必须已持有 a.mu 写锁。
+// 原子写（临时文件 + 改名），0600 权限：这里是登录凭证。
+func (a *Auth) saveSessionsLocked() {
+	blob, err := json.Marshal(a.sessions)
+	if err != nil {
+		return
+	}
+	tmp := a.sessionsPath + ".tmp"
+	if err := os.WriteFile(tmp, blob, 0600); err != nil {
+		return
+	}
+	_ = os.Rename(tmp, a.sessionsPath)
 }
 
 func randomToken(n int) (string, error) {
@@ -127,6 +167,7 @@ func (a *Auth) issue() (string, error) {
 			delete(a.sessions, k)
 		}
 	}
+	a.saveSessionsLocked()
 	a.mu.Unlock()
 	return tok, nil
 }
