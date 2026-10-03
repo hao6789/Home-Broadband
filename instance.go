@@ -24,7 +24,7 @@ import (
 // 这样已经装好的机器升上来行为完全不变，不用迁移任何东西。
 
 const (
-	// defaultWorkDir 是 install.sh 用的目录，绝大多数机器都是它。
+	// defaultWorkDir 是 scripts/install.sh 用的目录，绝大多数机器都是它。
 	defaultWorkDir = "/var/lib/home-broadband"
 	// defaultNetBase 是子网的第二段，历史上固定 99。
 	defaultNetBase = 99
