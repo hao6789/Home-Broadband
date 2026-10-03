@@ -191,8 +191,12 @@ label.chk input{margin:0;accent-color:var(--accent);width:15px;height:15px}
 /* ===== 节点视图 ===== */
 .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
   padding:14px 18px;margin-bottom:12px;box-shadow:var(--shadow)}
-.nghead{display:flex;align-items:center;gap:10px;margin-bottom:4px}
-.nghead b{font-size:14px}
+.nghead{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.nghead b{font-size:15px}
+.rgexit{border-top:1px solid var(--border);padding:6px 0 4px;margin-top:6px}
+.rgexit:first-of-type{border-top:0;margin-top:0;padding-top:0}
+.rgexit-head{display:flex;align-items:center;gap:9px;padding:6px 0;font-size:13px;font-weight:600}
+.rgexit .nrow{margin-left:18px}
 .nrow{display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--border)}
 .ninfo{display:flex;flex-direction:column;gap:2px;min-width:0}
 .ninfo b{font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -808,6 +812,10 @@ function renderExits(){
   $('#navEcount').textContent = n || '';
   $('#exportAll').disabled = !view.exits.some(e => e.inbounds && e.inbounds.length);
   $('#stopall').disabled = !n;
+  // 按地区排，地区放前面，一眼认出是哪个国家的出口
+  const exits = view.exits.slice().sort((a, b) =>
+    (a.country || a.region || '').localeCompare(b.country || b.region || '')
+    || (a.exit_ip || '').localeCompare(b.exit_ip || ''));
 
   if(!n){
     list.innerHTML = '<div class="empty"><div class="empty-t">还没有出口</div>'
@@ -817,7 +825,7 @@ function renderExits(){
     return;
   }
 
-  list.innerHTML = view.exits.map(e => {
+  list.innerHTML = exits.map(e => {
     const label = e.exit_ip || (e.status === 'starting' ? '连接中…' : '—');
     const chips = (e.inbounds || []).length
       ? e.inbounds.map(i => '<button class="chip" data-detail="' + i.id + '" title="'
@@ -830,8 +838,8 @@ function renderExits(){
     return '<div class="exit">'
       + '<div class="etop">'
       +   '<span class="dot ' + e.status + '" title="' + (STATUS[e.status] || e.status) + '"></span>'
-      +   '<span class="ip mono">' + esc(label) + '</span>'
-      +   '<span class="meta">' + place + ' · ' + esc(e.host) + '</span>'
+      +   '<span class="ip">' + place + '</span>'
+      +   '<span class="meta mono">' + esc(label) + ' · ' + esc(e.host) + '</span>'
       +   '<span class="spacer"></span>'
       +   '<button class="socksbtn" data-cred="' + e.slot + '" title="SOCKS5 访问凭据">'
       +     ICON.lock + '<span class="mono">:' + e.port + '</span></button>'
@@ -844,12 +852,12 @@ function renderExits(){
   }).join('');
 }
 
-/* ---- 节点：按出口分组，每行明示操作按钮 ---- */
+/* ---- 节点：按地区分组，地区下再按出口分，IP 跟在地区后面 ---- */
 function renderNodes(){
   const box = $('#nodelist');
-  const groups = view.exits.filter(e => (e.inbounds || []).length);
+  const withNodes = view.exits.filter(e => (e.inbounds || []).length);
   const unbound = view.direct || [];
-  const total = groups.reduce((a, e) => a + e.inbounds.length, 0) + unbound.length;
+  const total = withNodes.reduce((a, e) => a + e.inbounds.length, 0) + unbound.length;
   $('#ncount').textContent = total ? total + ' 个' : '';
   $('#navNcount').textContent = total || '';
 
@@ -872,16 +880,33 @@ function renderNodes(){
       + '</div></div>';
   };
 
-  let html = groups.map(e =>
-    '<div class="card"><div class="nghead">'
-    + '<span class="dot ' + e.status + '" title="' + (STATUS[e.status] || e.status) + '"></span>'
-    + '<b class="mono">' + esc(e.exit_ip || e.host) + '</b>'
-    + '<span class="dim small">' + esc(e.country || e.region || '') + '</span>'
-    + '<span class="count">' + e.inbounds.length + ' 个节点</span>'
-    + '</div>'
-    + e.inbounds.map(i => nodeRow(i, true)).join('')
-    + '</div>'
-  ).join('');
+  // 先按地区归类，地区内按出口 IP 排
+  const byRegion = {};
+  const order = [];
+  withNodes.forEach(e => {
+    const r = e.country || e.region || '其他';
+    if(!byRegion[r]){ byRegion[r] = []; order.push(r); }
+    byRegion[r].push(e);
+  });
+  order.sort((a, b) => a.localeCompare(b));
+  Object.keys(byRegion).forEach(r =>
+    byRegion[r].sort((a, b) => (a.exit_ip || '').localeCompare(b.exit_ip || '')));
+
+  let html = order.map(r => {
+    const exits = byRegion[r];
+    const nn = exits.reduce((a, e) => a + e.inbounds.length, 0);
+    return '<div class="card"><div class="nghead"><b>' + esc(r) + '</b>'
+      + '<span class="count">' + exits.length + ' 个出口 · ' + nn + ' 个节点</span></div>'
+      + exits.map(e =>
+          '<div class="rgexit"><div class="rgexit-head">'
+          + '<span class="dot ' + e.status + '" title="' + (STATUS[e.status] || e.status) + '"></span>'
+          + '<span class="mono">' + esc(e.exit_ip || e.host) + '</span>'
+          + '<span class="dim small">SOCKS5 :' + e.port + '</span>'
+          + '</div>'
+          + e.inbounds.map(i => nodeRow(i, true)).join('')
+          + '</div>').join('')
+      + '</div>';
+  }).join('');
 
   if(unbound.length){
     const hasUp = view.exits.some(e => e.status === 'up');
