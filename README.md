@@ -54,7 +54,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/
 不少 LXC 小鸡没给这个权限，`ls /dev/net/tun` 不存在且 `mknod` 报
 Operation not permitted 的话，这台机器用不了，跟发行版无关。
 
-装完敲 `f` 打开管理菜单：
+装完敲 `h` 打开管理菜单：
 
 ![管理菜单](https://images.joeyblog.net/2026/7/26/fanout-7-menu.png)
 
@@ -145,7 +145,7 @@ REALITY 的密钥对和 shortId 自动生成；TLS 不填证书就生成自签�
 
 ## 运维
 
-装完后敲 `f` 打开管理菜单：启停、看日志、查隧道、改端口/口令/访问路径、更新、卸载。
+装完后敲 `h` 打开管理菜单：启停、看日志、查隧道、改端口/口令/访问路径、更新、卸载。
 
 ```
   状态      运行中
