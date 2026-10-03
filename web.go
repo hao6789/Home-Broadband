@@ -788,6 +788,7 @@ applyTheme(themeMode());
 
 /* ---- 视图切换：总览 / 出口 / 节点 ---- */
 const VIEW_TITLES = {dash:'总览', exits:'出口', nodes:'节点', settings:'设置'};
+let polling = false; // poll 防重叠标记：必须在首次 switchView 调用之前初始化
 function switchView(v){
   if(!VIEW_TITLES[v]) v = 'dash';
   document.querySelectorAll('.nav button').forEach(b =>
@@ -827,7 +828,17 @@ const ICON = {
 
 // 界面挂在随机前缀下，请求一律走相对路径
 async function api(path, opts){
-  const r = await fetch(path.replace(/^\//, ''), opts);
+  const ctl = new AbortController();
+  const to = setTimeout(() => ctl.abort(), 15000);
+  let r;
+  try{
+    r = await fetch(path.replace(/^\//, ''), Object.assign({}, opts, {signal: ctl.signal}));
+  }catch(e){
+    if(e && e.name === 'AbortError') throw new Error('请求超时');
+    throw e;
+  }finally{
+    clearTimeout(to);
+  }
   if(r.status === 401){
     // 会话过期：刷一次，服务端会直接给登录页，不会死循环
     location.reload();
@@ -1042,6 +1053,8 @@ function renderJobs(jobs){
 }
 
 async function poll(){
+  if(polling) return; // 上一次还没回来，跳过：避免堆积和旧响应覆盖新数据
+  polling = true;
   try{
     view = await api('/api/exits');
     const bn = backendName();
@@ -1052,7 +1065,11 @@ async function poll(){
     renderDash();
     renderExits();
     renderNodes();
-  }catch(e){}
+  }catch(e){
+    console.warn('poll /api/exits 失败:', e && e.message || e);
+  }finally{
+    polling = false;
+  }
   try{ renderJobs(await api('/api/jobs') || []); }catch(e){}
 }
 
