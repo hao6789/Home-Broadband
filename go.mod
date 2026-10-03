@@ -1,4 +1,4 @@
-module fanout
+module home-broadband
 
 go 1.24
 
