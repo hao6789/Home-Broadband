@@ -175,15 +175,15 @@ else
   echo "      下载预编译版本 (${GOARCH})"
   TMP=$(mktemp -d)
   URL="https://github.com/${REPO}/releases/latest/download/home-broadband-linux-${GOARCH}.tar.gz"
-  if ! curl -fsSL "$URL" -o "$TMP/f.tar.gz"; then
+  if ! curl -fsSL "$URL" -o "$TMP/pkg.tar.gz"; then
     echo "      下载失败: $URL" >&2
     echo "      也可以 clone 仓库后在源码目录运行本脚本" >&2
     exit 1
   fi
-  tar xzf "$TMP/f.tar.gz" -C "$TMP"
+  tar xzf "$TMP/pkg.tar.gz" -C "$TMP"
   install -m 755 "$TMP/home-broadband" "$BIN"
   [[ -f home-broadband.service ]] || cp "$TMP/home-broadband.service" .
-  [[ -f "$TMP/f.sh" ]] && install -m 755 "$TMP/f.sh" /usr/local/bin/f
+  [[ -f "$TMP/h.sh" ]] && install -m 755 "$TMP/h.sh" /usr/local/bin/h
   rm -rf "$TMP"
 fi
 
@@ -242,13 +242,13 @@ command -v netfilter-persistent >/dev/null && netfilter-persistent save >/dev/nu
 
 echo "[5/6] 安装服务"
 # 管理菜单
-if [[ -f f.sh ]]; then
-  install -m 755 f.sh /usr/local/bin/f
-elif [[ -n "${TMP:-}" && -f "${TMP}/f.sh" ]]; then
-  install -m 755 "${TMP}/f.sh" /usr/local/bin/f
+if [[ -f h.sh ]]; then
+  install -m 755 h.sh /usr/local/bin/h
+elif [[ -n "${TMP:-}" && -f "${TMP}/h.sh" ]]; then
+  install -m 755 "${TMP}/h.sh" /usr/local/bin/h
 else
-  curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/f.sh" -o /usr/local/bin/f \
-    && chmod 755 /usr/local/bin/f
+  curl -fsSL "https://raw.githubusercontent.com/${REPO}/main/h.sh" -o /usr/local/bin/h \
+    && chmod 755 /usr/local/bin/h
 fi
 mkdir -p "$WORK_DIR"
 chmod 700 "$WORK_DIR"
@@ -283,7 +283,7 @@ echo "  路径和口令都是随机生成的，也可以随时查看："
 echo "    cat ${WORK_DIR}/basepath"
 echo "    cat ${WORK_DIR}/password"
 echo
-echo "  输入 f 打开管理菜单"
+echo "  输入 h 打开管理菜单"
 echo
 echo "  ────────────────────────────────"
 echo "  交流群  https://t.me/+ft-zI76oovgwNmRh"
