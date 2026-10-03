@@ -95,28 +95,25 @@ pause() {
 }
 
 show_info() {
-  local state port bp pw ip
+  local state port bp pw ip ver n autostart
   state=$(svc_state); port=$(web_port)
   bp=$(cat "$WORK_DIR/basepath" 2>/dev/null || echo "-")
   pw=$(cat "$WORK_DIR/password" 2>/dev/null || echo "-")
   ip=$(public_ip)
+  ver=$("$BIN" -version 2>/dev/null || echo '-')
+  n=$(ls -d /var/run/netns/hb* 2>/dev/null | wc -l | tr -d ' ')
+  if svc_is_enabled; then autostart="${G}已开启${N}"; else autostart="${Y}已关闭${N}"; fi
 
   echo
   if [[ $state == running ]]; then
-    echo -e "  状态      ${G}运行中${N}"
+    echo -e "  状态  ${G}运行中${N}    版本  ${ver}"
   else
-    echo -e "  状态      ${R}已停止${N}"
+    echo -e "  状态  ${R}已停止${N}    版本  ${ver}"
   fi
-  echo -e "  版本      $("$BIN" -version 2>/dev/null || echo '-')"
-  echo -e "  开机自启  $(svc_enabled_text)"
+  echo -e "  自启  ${autostart}    隧道  ${n} 条"
   echo
   echo -e "  ${B}管理地址  http://${ip}:${port}/${bp}/${N}"
   echo -e "  ${B}访问口令  ${pw}${N}"
-  echo
-
-  local n
-  n=$(ls -d /var/run/netns/fo* 2>/dev/null | wc -l | tr -d ' ')
-  echo -e "  ${D}运行中的隧道: ${n}${N}"
 }
 
 list_tunnels() {
@@ -320,21 +317,23 @@ do_uninstall() {
 menu() {
   while true; do
     clear
-    echo -e "${B}  home-broadband${N}  ${D}VPN Gate 出口扇出网关${N}"
+    echo -e "${B}  ★ home-broadband${N}  ${D}VPN Gate 出口网关${N}"
     show_info
-    echo -e "${D}  ─────────────────────────────${N}"
-    echo "   1) 启动          2) 停止"
-    echo "   3) 重启          4) 查看日志"
     echo
-    echo "   5) 隧道列表      6) 连接信息"
+    echo -e "  ${D}[ 服务 ]${N}"
+    echo "   1 启动    2 停止    3 重启    4 日志"
     echo
-    echo "   7) 改端口        8) 改口令"
-    echo "   9) 改访问路径   10) 开机自启开关"
+    echo -e "  ${D}[ 查看 ]${N}"
+    echo "   5 隧道列表    6 连接信息"
     echo
-    echo "  11) 更新         12) 卸载"
-    echo "  13) 交流群 / 反馈"
-    echo "   0) 退出"
-    echo -e "${D}  ─────────────────────────────${N}"
+    echo -e "  ${D}[ 配置 ]${N}"
+    echo "   7 改端口    8 改口令    9 改访问路径    10 开机自启"
+    echo
+    echo -e "  ${D}[ 其他 ]${N}"
+    echo "  11 更新    12 卸载    13 反馈"
+    echo
+    echo "   0 退出"
+    echo
     read -rp "  选择: " choice
 
     case "$choice" in
@@ -380,7 +379,7 @@ case "${1:-}" in
   uninstall) do_uninstall ;;
   "")       menu ;;
   *)
-    echo "用法: f [start|stop|restart|status|log|info|list|update|uninstall]"
+    echo "用法: h [start|stop|restart|status|log|info|list|update|uninstall]"
     echo "不带参数进入交互菜单"
     ;;
 esac
