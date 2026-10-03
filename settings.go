@@ -26,6 +26,15 @@ type WebSettings struct {
 	// SubToken 是订阅地址里的口令。订阅要免登录才能被客户端拉取，
 	// 所以这串就是它唯一的门槛，等同于密码，不要外传。
 	SubToken string `json:"sub_token,omitempty"`
+	// TLSCert / TLSKey 是面板 HTTPS 的证书与私钥路径。两个都填才启用 HTTPS，
+	// 只填一个不行；都不填就是普通 HTTP。
+	TLSCert string `json:"tls_cert,omitempty"`
+	TLSKey  string `json:"tls_key,omitempty"`
+}
+
+// tlsEnabled 两个路径都填了才算启用 HTTPS。
+func (s WebSettings) tlsEnabled() bool {
+	return strings.TrimSpace(s.TLSCert) != "" && strings.TrimSpace(s.TLSKey) != ""
 }
 
 // residentialOnly 返回"只用家宽"是否开启。没配过时默认开：

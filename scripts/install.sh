@@ -283,6 +283,9 @@ echo "    cat ${WORK_DIR}/password"
 echo
 echo "  输入 h 打开管理菜单"
 echo
+echo "  安全提示：面板当前是 HTTP 明文传输，公网访问建议开启 HTTPS。"
+echo "  输入 h 选择「证书管理」→「申请证书」，按提示办一张免费证书。"
+echo
 echo "  ────────────────────────────────"
 echo "  项目    https://github.com/hao6789/Home-Broadband"
 echo

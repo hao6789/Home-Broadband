@@ -330,6 +330,8 @@ func apiSettings(auth *Auth, srv *webServer) http.HandlerFunc {
 		Port            *int    `json:"port"`             // 提供即改监听端口
 		ListenAddr      *string `json:"listen_addr"`      // 提供即改监听地址
 		ResidentialOnly *bool   `json:"residential_only"` // 提供即改"只用家宽"
+		TLSCert         *string `json:"tls_cert"`         // 提供即改证书路径（空串=关 HTTPS）
+		TLSKey          *string `json:"tls_key"`          // 提供即改私钥路径（空串=关 HTTPS）
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -361,14 +363,20 @@ func apiSettings(auth *Auth, srv *webServer) http.HandlerFunc {
 					return
 				}
 			}
-			// 改端口 / 监听地址：合成一份新的 WebSettings 一起应用，避免绑两次
-			if in.Port != nil || in.ListenAddr != nil {
+			// 改端口 / 监听地址 / 证书：合成一份新的 WebSettings 一起应用，避免绑两次
+			if in.Port != nil || in.ListenAddr != nil || in.TLSCert != nil || in.TLSKey != nil {
 				next := getWebSettings()
 				if in.Port != nil {
 					next.Port = *in.Port
 				}
 				if in.ListenAddr != nil {
 					next.ListenAddr = *in.ListenAddr
+				}
+				if in.TLSCert != nil {
+					next.TLSCert = strings.TrimSpace(*in.TLSCert)
+				}
+				if in.TLSKey != nil {
+					next.TLSKey = strings.TrimSpace(*in.TLSKey)
 				}
 				if err := srv.applyWebSettings(next); err != nil {
 					writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
@@ -382,12 +390,26 @@ func apiSettings(auth *Auth, srv *webServer) http.HandlerFunc {
 		if listen == "" {
 			listen = "0.0.0.0"
 		}
+		var tlsInfo map[string]any
+		if cfg.tlsEnabled() {
+			if cn, notAfter, ok := tlsCertInfo(cfg.TLSCert); ok {
+				days := int(time.Until(notAfter).Hours() / 24)
+				tlsInfo = map[string]any{
+					"cn":        cn,
+					"not_after": notAfter.Format("2006-01-02"),
+					"days_left": days,
+				}
+			}
+		}
 		writeJSON(w, http.StatusOK, map[string]any{
 			"base_path":        currentBasePath(),
 			"port":             cfg.Port,
 			"listen_addr":      listen,
 			"has_password":     true,
 			"residential_only": cfg.residentialOnly(),
+			"tls_cert":         cfg.TLSCert,
+			"tls_key":          cfg.TLSKey,
+			"tls_info":         tlsInfo,
 			"version":          version,
 		})
 	}
