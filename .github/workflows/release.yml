@@ -28,7 +28,8 @@ jobs:
           fetch-depth: 0
       - id: ver
         run: |
-          if git log -1 --pretty=%B | grep -qi '\[skip release\]'; then
+          # 只看标题行：正文里提到 [skip release] 也不算（比如介绍这个功能的提交）
+          if git log -1 --pretty=%s | grep -qi '\[skip release\]'; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
             echo "提交信息含 [skip release]，跳过发版"
             exit 0
