@@ -128,7 +128,7 @@ func main() {
 		log.Fatalf("初始化访问口令失败: %v", err)
 	}
 	if created {
-		log.Printf("已生成访问口令，见 %s", filepath.Join(*workDir, "password"))
+		log.Printf("已生成访问口令，存在 %s 的 password 字段", filepath.Join(*workDir, "config.json"))
 	}
 
 	bpCreated, err := config.InitBasePath(*workDir)
@@ -136,7 +136,7 @@ func main() {
 		log.Fatalf("初始化访问路径失败: %v", err)
 	}
 	if bpCreated {
-		log.Printf("已生成访问路径，见 %s", filepath.Join(*workDir, "basepath"))
+		log.Printf("已生成访问路径，存在 %s 的 basepath 字段", filepath.Join(*workDir, "config.json"))
 	}
 
 	// 用户显式给了 -web 就以命令行为准，否则沿用界面上存过的端口

@@ -261,25 +261,25 @@ svc_is_active && echo "      服务运行中（${INIT_SYS}）" || {
   exit 1
 }
 
-# 口令与访问路径由 home-broadband 首次启动时生成，等它写出来
-for _ in $(seq 1 10); do
-  [[ -s "${WORK_DIR}/password" && -s "${WORK_DIR}/basepath" ]] && break
+# 口令、访问路径、端口都在 config.json 里（配置统一后不再写散文件）。
+# 等 home-broadband 首次启动写出来。
+for _ in $(seq 1 15); do
+  [[ -s "${WORK_DIR}/config.json" ]] && break
   sleep 1
 done
 
 IP=$(curl -s --max-time 8 http://api.ipify.org || echo "<本机IP>")
-BP=$(cat "${WORK_DIR}/basepath" 2>/dev/null || true)
-# 以配置里的实际端口为准报地址，别让提示和真实监听对不上
-ACTUAL_PORT=$(sed -n 's/.*"port"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p' \
-  "${WORK_DIR}/settings.json" 2>/dev/null | head -1)
-[[ -n $ACTUAL_PORT ]] && WEB_PORT="$ACTUAL_PORT"
+# 用 python3 从 config.json 里取，免得再被散文件改名搞乱
+BP=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('basepath',''))" 2>/dev/null)
+WEB_PORT=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('web',{}).get('port',''))" 2>/dev/null)
+[[ -n "$WEB_PORT" ]] || WEB_PORT=8899
+PW=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('password',''))" 2>/dev/null)
 echo
 echo "  管理界面  http://${IP}:${WEB_PORT}/${BP}/"
-echo "  访问口令  $(cat "${WORK_DIR}/password" 2>/dev/null || echo "见 ${WORK_DIR}/password")"
+echo "  访问口令  ${PW:-见 ${WORK_DIR}/config.json 的 password 字段}"
 echo
-echo "  路径和口令都是随机生成的，也可以随时查看："
-echo "    cat ${WORK_DIR}/basepath"
-echo "    cat ${WORK_DIR}/password"
+echo "  路径和口令都是随机生成的，存在 ${WORK_DIR}/config.json 里："
+echo "    python3 -c \"import json; d=json.load(open('${WORK_DIR}/config.json')); print(d['basepath'], d['password'])\""
 echo
 echo "  输入 h 打开管理菜单"
 echo
