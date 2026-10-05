@@ -220,7 +220,15 @@ reset_password() {
     pw=$(head -c 9 /dev/urandom | od -An -tx1 | tr -d ' \n')
   fi
   cfg_set password "$pw"
-  # 让已登录的会话失效，下次用新口令登录
+  # 清掉已登录的会话，强制所有人用新口令重新登录
+  python3 - "$CFG" <<'PY' 2>/dev/null
+import json, sys
+f = sys.argv[1]
+d = json.load(open(f))
+d['sessions'] = {}
+json.dump(d, open(f, 'w'), indent=2)
+PY
+  chmod 600 "$CFG"
   svc_restart
   echo -e "  ${G}新口令: ${pw}${N}"
 }
@@ -486,6 +494,18 @@ do_update() {
     aarch64|arm64) goarch=arm64 ;;
     *) echo -e "  ${R}不支持的架构 ${arch}${N}"; return ;;
   esac
+
+  # 新版 h.sh 读写 config.json 依赖 python3，老机器可能没有
+  if ! command -v python3 >/dev/null; then
+    echo "  正在安装 python3..."
+    if command -v apt-get >/dev/null; then
+      apt-get update -qq && DEBIAN_FRONTEND=noninteractive apt-get install -y -qq python3
+    elif command -v dnf >/dev/null; then dnf install -y -q python3
+    elif command -v yum >/dev/null; then yum install -y -q python3
+    elif command -v apk >/dev/null; then apk add --no-cache python3
+    elif command -v pacman >/dev/null; then pacman -Sy --noconfirm --needed python3
+    else echo -e "  ${Y}装不上 python3，菜单可能显示不全${N}"; fi
+  fi
 
   echo -e "\n  当前 $("$BIN" -version 2>/dev/null || echo '-')"
   tmp=$(mktemp -d)

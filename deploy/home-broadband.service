@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-# 端口由 /var/lib/home-broadband/settings.json 决定（界面和 h 菜单都改它）。
+# 端口由 /var/lib/home-broadband/config.json 的 web.port 决定（界面和 h 菜单都改它）。
 # 这里不写 -web，否则改完端口一重启就被拽回旧值。
 ExecStart=/usr/local/bin/home-broadband -dir /var/lib/home-broadband
 Restart=on-failure
