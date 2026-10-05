@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+
+	"home-broadband/internal/vpngate"
 )
 
 // 换节点改名：只动 home-broadband 自己起的名字。
@@ -173,23 +175,23 @@ func TestLinkForPortHandlesURIStyle(t *testing.T) {
 
 // 别名要能一眼看出国家，末段留着区分同国的多条出口。
 func TestExitLabel(t *testing.T) {
-	t1 := &Tunnel{Node: Node{CountryCode: "JP", Country: "Japan"}, ExitIP: "133.32.233.192"}
+	t1 := &Tunnel{Node: vpngate.Node{CountryCode: "JP", Country: "Japan"}, ExitIP: "133.32.233.192"}
 	if got := exitLabel(t1); got != "🇯🇵 日本 192" {
 		t.Fatalf("exitLabel=%q", got)
 	}
 	// 还没探到出口 IP 时退回主机名
-	t2 := &Tunnel{Node: Node{CountryCode: "KR", Country: "Korea", HostName: "vpn123"}}
+	t2 := &Tunnel{Node: vpngate.Node{CountryCode: "KR", Country: "Korea", HostName: "vpn123"}}
 	if got := exitLabel(t2); got != "🇰🇷 韩国 vpn123" {
 		t.Fatalf("exitLabel=%q", got)
 	}
 	// 同国两条出口的别名不能撞（mihomo 要求节点名唯一）
-	a := &Tunnel{Node: Node{CountryCode: "JP", Country: "Japan"}, ExitIP: "1.2.3.4"}
-	b := &Tunnel{Node: Node{CountryCode: "JP", Country: "Japan"}, ExitIP: "1.2.3.5"}
+	a := &Tunnel{Node: vpngate.Node{CountryCode: "JP", Country: "Japan"}, ExitIP: "1.2.3.4"}
+	b := &Tunnel{Node: vpngate.Node{CountryCode: "JP", Country: "Japan"}, ExitIP: "1.2.3.5"}
 	if exitLabel(a) == exitLabel(b) {
 		t.Fatal("同国不同出口的别名撞了")
 	}
 	// 什么国家信息都没有时不能只剩一个空名字
-	t3 := &Tunnel{Node: Node{HostName: "vpn999"}}
+	t3 := &Tunnel{Node: vpngate.Node{HostName: "vpn999"}}
 	if got := exitLabel(t3); got != "vpn999" {
 		t.Fatalf("exitLabel=%q", got)
 	}

@@ -6,6 +6,8 @@ import (
 	"os"
 	"strings"
 	"sync"
+
+	"home-broadband/internal/vpngate"
 )
 
 // Native 是 home-broadband 自己跑 Xray 的后端，用在本机没装 3x-ui 的场合。
@@ -244,7 +246,7 @@ func (n *Native) CloneToTunnels(templateID int, hosts []string, tunnels []*Tunne
 		}
 		used[port] = true
 
-		remark := UniqueRemark(exitLabel(t), takenRemarks)
+		remark := vpngate.UniqueRemark(exitLabel(t), takenRemarks)
 		takenRemarks[remark] = true
 
 		clone := &nativeInbound{

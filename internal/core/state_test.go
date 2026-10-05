@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"home-broadband/internal/config"
+	"home-broadband/internal/vpngate"
 )
 
 // 换节点未收尾的标记要跟着状态一起落盘。
@@ -18,7 +19,7 @@ func TestSaveStateKeepsPrevHost(t *testing.T) {
 	m := NewManager(20, dir)
 	tn := &Tunnel{
 		Slot: 1, Port: 12345,
-		Node:   Node{HostName: "vpn-new", CountryCode: "JP"},
+		Node:   vpngate.Node{HostName: "vpn-new", CountryCode: "JP"},
 		Status: "starting",
 		Cred:   SocksCred{User: "u", Pass: "p"},
 	}
@@ -56,7 +57,7 @@ func TestSaveStateKeepsPrevHost(t *testing.T) {
 func TestPrevHostClearedAfterSettle(t *testing.T) {
 	dir := t.TempDir()
 	m := NewManager(20, dir)
-	tn := &Tunnel{Slot: 1, Node: Node{HostName: "vpn-new"}, Status: "up"}
+	tn := &Tunnel{Slot: 1, Node: vpngate.Node{HostName: "vpn-new"}, Status: "up"}
 	tn.setPrevHost("vpn-old")
 	m.tunnels[1] = tn
 	if err := m.saveState(); err != nil {

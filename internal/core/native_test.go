@@ -3,6 +3,8 @@ package core
 import (
 	"strings"
 	"testing"
+
+	"home-broadband/internal/vpngate"
 )
 
 func TestNativeInboundTagMatchesXUIFormat(t *testing.T) {
@@ -23,8 +25,8 @@ func TestNativeInboundTagMatchesXUIFormat(t *testing.T) {
 }
 
 func TestBuildXrayConfigBindsOnlyLiveTunnels(t *testing.T) {
-	up := &Tunnel{Port: 1080, Status: "up", Node: Node{HostName: "jp1"}}
-	down := &Tunnel{Port: 1081, Status: "failed", Node: Node{HostName: "jp2"}}
+	up := &Tunnel{Port: 1080, Status: "up", Node: vpngate.Node{HostName: "jp1"}}
+	down := &Tunnel{Port: 1081, Status: "failed", Node: vpngate.Node{HostName: "jp2"}}
 	inbounds := []*nativeInbound{
 		{ID: 1, Port: 100, Protocol: "vless", Enable: true, BoundTo: "jp1"},
 		{ID: 2, Port: 200, Protocol: "vless", Enable: true, BoundTo: "jp2"},
@@ -94,16 +96,16 @@ func TestShareLinkPerProtocol(t *testing.T) {
 // 以前拼接会在"拿复制品当模板再复制"时叠成 home-broadband-JP-243-VN-165 这种。
 func TestUniqueRemark(t *testing.T) {
 	taken := map[string]bool{}
-	if got := UniqueRemark("🇯🇵 日本 54", taken); got != "🇯🇵 日本 54" {
+	if got := vpngate.UniqueRemark("🇯🇵 日本 54", taken); got != "🇯🇵 日本 54" {
 		t.Errorf("没撞名时应原样返回，实际 %q", got)
 	}
 	taken["🇯🇵 日本 54"] = true
 	// 同一条出口挂第二个节点时要加序号，mihomo 那边名字重了会丢节点
-	if got := UniqueRemark("🇯🇵 日本 54", taken); got != "🇯🇵 日本 54 2" {
+	if got := vpngate.UniqueRemark("🇯🇵 日本 54", taken); got != "🇯🇵 日本 54 2" {
 		t.Errorf("撞名应加序号，实际 %q", got)
 	}
 	taken["🇯🇵 日本 54 2"] = true
-	if got := UniqueRemark("🇯🇵 日本 54", taken); got != "🇯🇵 日本 54 3" {
+	if got := vpngate.UniqueRemark("🇯🇵 日本 54", taken); got != "🇯🇵 日本 54 3" {
 		t.Errorf("第三个应是 3，实际 %q", got)
 	}
 }
@@ -126,12 +128,12 @@ func TestRenameExitLabel(t *testing.T) {
 
 func TestIsGeneratedLabel(t *testing.T) {
 	for _, s := range []string{"🇯🇵 日本 54", "🇺🇸 美国 1", " 🇰🇷 韩国 15"} {
-		if !IsGeneratedLabel(s) {
+		if !vpngate.IsGeneratedLabel(s) {
 			t.Errorf("%q 是自动生成的名字", s)
 		}
 	}
 	for _, s := range []string{"", "线路A", "JP-244", "home-broadband-JP-243", "日本 54"} {
-		if IsGeneratedLabel(s) {
+		if vpngate.IsGeneratedLabel(s) {
 			t.Errorf("%q 不是自动生成的名字", s)
 		}
 	}

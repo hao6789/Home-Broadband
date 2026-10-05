@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"home-broadband/internal/config"
+	"home-broadband/internal/vpngate"
 )
 
 // withResidentialOnly 临时改"只用家宽"开关，不落盘，测完自动还原。
@@ -16,7 +17,7 @@ func withResidentialOnly(t *testing.T, v *bool) {
 
 func boolPtr(v bool) *bool { return &v }
 
-var mixed = []Node{
+var mixed = []vpngate.Node{
 	{HostName: "public-vpn-1", CountryCode: "JP", Country: "Japan", SpeedMbps: 900, Residential: false},
 	{HostName: "jp-home", CountryCode: "JP", Country: "Japan", SpeedMbps: 300, Residential: true},
 	{HostName: "kr-dc", CountryCode: "KR", Country: "Korea", SpeedMbps: 500, Residential: false},
@@ -71,14 +72,14 @@ func TestRegionsSkipsHosting(t *testing.T) {
 // 没配过这个开关时默认是开的：home-broadband 的意义就是把家宽扇成出口。
 func TestResidentialOnlyDefaultsOn(t *testing.T) {
 	withResidentialOnly(t, nil)
-	if !ResidentialOnly() {
+	if !config.ResidentialOnly() {
 		t.Fatal("没配过时应默认只用家宽")
 	}
 }
 
 // ---- 换节点：不能换回刚才那个 ----
 
-var pool = []Node{
+var pool = []vpngate.Node{
 	{HostName: "jp1", CountryCode: "JP", SpeedMbps: 900, Residential: true},
 	{HostName: "jp2", CountryCode: "JP", SpeedMbps: 800, Residential: true},
 	{HostName: "jp3", CountryCode: "JP", SpeedMbps: 700, Residential: true},
@@ -169,7 +170,7 @@ func TestSwapHistoryResetAfterFullRound(t *testing.T) {
 
 // 历史有上限，不能无限攒着把自动重连的候选面排干。
 func TestSwapHistoryCapped(t *testing.T) {
-	tn := &Tunnel{Slot: 1, Node: Node{HostName: "cur"}}
+	tn := &Tunnel{Slot: 1, Node: vpngate.Node{HostName: "cur"}}
 	for i := 0; i < swapHistoryMax+5; i++ {
 		tn.rememberSwap(string(rune('a'+i%26)) + string(rune('0'+i/26)))
 	}
@@ -205,7 +206,7 @@ func TestCandidatesForKeepsCurrentFirstAndAvoidsSwapped(t *testing.T) {
 
 // ---- 每个国家各开几个 ----
 
-var manyRegions = []Node{
+var manyRegions = []vpngate.Node{
 	{HostName: "jp1", CountryCode: "JP", Country: "Japan", SpeedMbps: 900, Residential: true},
 	{HostName: "jp2", CountryCode: "JP", Country: "Japan", SpeedMbps: 800, Residential: true},
 	{HostName: "jp3", CountryCode: "JP", Country: "Japan", SpeedMbps: 700, Residential: true},

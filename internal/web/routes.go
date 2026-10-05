@@ -1,9 +1,13 @@
 package web
 
-import "net/http"
+import (
+	"net/http"
+
+	"home-broadband/internal/core"
+)
 
 // RegisterRoutes 把全部 HTTP 路由挂到 mux 上。原来这份路由表在 main.go 里。
-func RegisterRoutes(mux *http.ServeMux, mgr *Manager, workDir string, auth *Auth, srv *webServer) {
+func RegisterRoutes(mux *http.ServeMux, mgr *core.Manager, workDir string, auth *Auth, srv *webServer) {
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/api/nodes", apiNodes(mgr))
 	mux.HandleFunc("/api/tunnels", apiTunnels(mgr))

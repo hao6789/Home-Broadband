@@ -6,6 +6,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"home-broadband/internal/config"
+	"home-broadband/internal/job"
+	"home-broadband/internal/vpngate"
 )
 
 // ProvisionRequest 是"给我 N 个某地区的出口"这个意图。
@@ -21,11 +25,11 @@ type ProvisionRequest struct {
 //
 // 隧道并行拉起（每条都要等 openvpn 握手，串行会线性累加等待），
 // 面板侧的入站创建则统一放到最后串行做一次，因为每次改路由都要重启 Xray。
-func (m *Manager) Provision(req ProvisionRequest) (*Job, error) {
+func (m *Manager) Provision(req ProvisionRequest) (*job.Job, error) {
 	if req.Count < 1 {
 		return nil, fmt.Errorf("数量至少为 1")
 	}
-	var picks []Node
+	var picks []vpngate.Node
 	var err error
 	if req.EveryRegion {
 		picks, err = m.pickEveryRegion(req.Count)
@@ -59,7 +63,7 @@ func (m *Manager) Provision(req ProvisionRequest) (*Job, error) {
 	return job, nil
 }
 
-func (m *Manager) runProvision(job *Job, picks []Node, templateID int) {
+func (m *Manager) runProvision(job *job.Job, picks []vpngate.Node, templateID int) {
 	defer job.Finish()
 
 	var wg sync.WaitGroup
@@ -135,7 +139,7 @@ func (m *Manager) waitUp(t *Tunnel) {
 //
 // avoid 里的 hostname 一并跳过，用于"换节点"：那条路径要避开这条出口
 // 之前用过的节点，否则连点两次会在两个节点之间来回跳。传 nil 表示不额外排除。
-func (m *Manager) pickNodes(region string, count int, avoid map[string]bool) ([]Node, error) {
+func (m *Manager) pickNodes(region string, count int, avoid map[string]bool) ([]vpngate.Node, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 
@@ -145,7 +149,7 @@ func (m *Manager) pickNodes(region string, count int, avoid map[string]bool) ([]
 	}
 
 	pool := m.nodePoolLocked()
-	var out []Node
+	var out []vpngate.Node
 	for _, n := range pool {
 		if len(out) >= count {
 			break
@@ -170,7 +174,7 @@ func (m *Manager) pickNodes(region string, count int, avoid map[string]bool) ([]
 // 挑出来的会重复（隧道还没开起来，避让集合不会变）。
 // 总数受槽位上限约束，排不下时按地区可用数从多到少截断，
 // 保证先把节点多的大区开出来。
-func (m *Manager) pickEveryRegion(perRegion int) ([]Node, error) {
+func (m *Manager) pickEveryRegion(perRegion int) ([]vpngate.Node, error) {
 	if perRegion < 1 {
 		perRegion = 1
 	}
@@ -185,7 +189,7 @@ func (m *Manager) pickEveryRegion(perRegion int) ([]Node, error) {
 	filtered := len(pool) < len(m.nodes)
 
 	// pool 本身按速度降序，所以每个地区先遇到的就是最快的
-	byRegion := map[string][]Node{}
+	byRegion := map[string][]vpngate.Node{}
 	var order []string
 	for _, n := range pool {
 		if used[n.HostName] || n.CountryCode == "" {
@@ -218,7 +222,7 @@ func (m *Manager) pickEveryRegion(perRegion int) ([]Node, error) {
 		return order[i] < order[j]
 	})
 
-	var out []Node
+	var out []vpngate.Node
 	for _, code := range order {
 		for _, n := range byRegion[code] {
 			if len(out) >= room {
@@ -236,7 +240,7 @@ func (m *Manager) pickEveryRegion(perRegion int) ([]Node, error) {
 // 家宽过滤剔掉了一批、这个地区本来就没有、列表过期了，处理方式完全不同。
 func (m *Manager) noNodesErrLocked(region string, filtered bool) error {
 	tail := ""
-	if filtered && ResidentialOnly() {
+	if filtered && config.ResidentialOnly() {
 		tail = "；现在只用家宽节点，想放开就去设置里关掉「只用家宽」"
 	}
 	if region != "" {
@@ -250,11 +254,11 @@ func (m *Manager) noNodesErrLocked(region string, filtered bool) error {
 //
 // 只影响"新挑节点"：已经跑起来的隧道不会因为打开这个开关而被换掉，
 // 否则改一下设置就把用户手上所有出口的 IP 全换了。
-func (m *Manager) nodePoolLocked() []Node {
-	if !ResidentialOnly() {
+func (m *Manager) nodePoolLocked() []vpngate.Node {
+	if !config.ResidentialOnly() {
 		return m.nodes
 	}
-	out := make([]Node, 0, len(m.nodes))
+	out := make([]vpngate.Node, 0, len(m.nodes))
 	for _, n := range m.nodes {
 		if n.Residential {
 			out = append(out, n)
@@ -289,7 +293,7 @@ func (m *Manager) Regions() []RegionStat {
 		}
 		s := byCode[n.CountryCode]
 		if s == nil {
-			s = &RegionStat{Code: n.CountryCode, Name: CountryLabel(n.CountryCode, n.Country), BestPing: n.Ping}
+			s = &RegionStat{Code: n.CountryCode, Name: vpngate.CountryLabel(n.CountryCode, n.Country), BestPing: n.Ping}
 			byCode[n.CountryCode] = s
 		}
 		s.Available++
@@ -315,8 +319,8 @@ func (m *Manager) Regions() []RegionStat {
 }
 
 // regionLabel 给出口起一个人能读的名字。
-func regionLabel(n Node) string {
-	if place := NodeLabel(n); place != "" {
+func regionLabel(n vpngate.Node) string {
+	if place := vpngate.NodeLabel(n); place != "" {
 		return place
 	}
 	return n.HostName

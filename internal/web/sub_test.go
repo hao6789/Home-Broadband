@@ -3,27 +3,29 @@ package web
 import (
 	"encoding/base64"
 	"fmt"
-	"home-broadband/internal/config"
-	"home-broadband/internal/core"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"home-broadband/internal/config"
+	"home-broadband/internal/core"
+	"home-broadband/internal/vpngate"
 )
 
 // fakePanel 是个只会列入站、给链接的假后端。
-// OpenPanel 缓存在 panelState.current 里，测试直接塞一个进去就能绕开真面板。
+// core.OpenPanel 缓存在 panelState.current 里，测试直接塞一个进去就能绕开真面板。
 type fakePanel struct {
-	inbounds []Inbound
+	inbounds []core.Inbound
 	linkErr  error
 }
 
 func (f *fakePanel) Kind() string     { return "fake" }
 func (f *fakePanel) Describe() string { return "测试用" }
-func (f *fakePanel) Inbounds(live map[string]bool) ([]Inbound, error) {
+func (f *fakePanel) Inbounds(live map[string]bool) ([]core.Inbound, error) {
 	return f.inbounds, nil
 }
-func (f *fakePanel) InboundDetail(id int, publicHost string) (*InboundDetail, error) {
+func (f *fakePanel) InboundDetail(id int, publicHost string) (*core.InboundDetail, error) {
 	return nil, fmt.Errorf("用不到")
 }
 func (f *fakePanel) InboundLinks(ids []int, publicHost string) ([]string, error) {
@@ -36,29 +38,29 @@ func (f *fakePanel) InboundLinks(ids []int, publicHost string) ([]string, error)
 	}
 	return out, nil
 }
-func (f *fakePanel) Bind(string, string, []*Tunnel) error    { return nil }
-func (f *fakePanel) Rebind(string, *Tunnel, []*Tunnel) error { return nil }
-func (f *fakePanel) ResyncOutbound(*Tunnel, []*Tunnel) error { return nil }
-func (f *fakePanel) CloneToTunnels(int, []string, []*Tunnel) ([]int, error) {
+func (f *fakePanel) Bind(string, string, []*core.Tunnel) error         { return nil }
+func (f *fakePanel) Rebind(string, *core.Tunnel, []*core.Tunnel) error { return nil }
+func (f *fakePanel) ResyncOutbound(*core.Tunnel, []*core.Tunnel) error { return nil }
+func (f *fakePanel) CloneToTunnels(int, []string, []*core.Tunnel) ([]int, error) {
 	return nil, nil
 }
-func (f *fakePanel) DeleteInbounds([]int, []*Tunnel) error { return nil }
-func (f *fakePanel) CreateInbound(NewInboundSpec, []*Tunnel) (*CreatedInbound, error) {
+func (f *fakePanel) DeleteInbounds([]int, []*core.Tunnel) error { return nil }
+func (f *fakePanel) CreateInbound(core.NewInboundSpec, []*core.Tunnel) (*core.CreatedInbound, error) {
 	return nil, nil
 }
-func (f *fakePanel) UpdateInbound(int, InboundPatch, []*Tunnel) error { return nil }
-func (f *fakePanel) AddClient(int, string, []*Tunnel) error           { return nil }
-func (f *fakePanel) DeleteClient(int, string, []*Tunnel) error        { return nil }
-func (f *fakePanel) ResetClient(int, string, []*Tunnel) error         { return nil }
-func (f *fakePanel) OnTunnelsChanged([]*Tunnel) error                 { return nil }
-func (f *fakePanel) Close()                                           {}
+func (f *fakePanel) UpdateInbound(int, core.InboundPatch, []*core.Tunnel) error { return nil }
+func (f *fakePanel) AddClient(int, string, []*core.Tunnel) error                { return nil }
+func (f *fakePanel) DeleteClient(int, string, []*core.Tunnel) error             { return nil }
+func (f *fakePanel) ResetClient(int, string, []*core.Tunnel) error              { return nil }
+func (f *fakePanel) OnTunnelsChanged([]*core.Tunnel) error                      { return nil }
+func (f *fakePanel) Close()                                                     {}
 
 // usePanel 临时把后端换成假的，测完还原。
-func usePanel(t *testing.T, p Panel) {
+func usePanel(t *testing.T, p core.Panel) {
 	t.Helper()
 	t.Cleanup(core.SwapPanelForTest(p))
-	InvalidateInbounds()
-	t.Cleanup(InvalidateInbounds)
+	core.InvalidateInbounds()
+	t.Cleanup(core.InvalidateInbounds)
 }
 
 // useSettings 把设置指向一个临时目录，避免测试互相污染或写到真配置上。
@@ -89,7 +91,7 @@ func TestSubTokenGeneratedAndPersisted(t *testing.T) {
 		t.Fatalf("口令不该每次都变: %q -> %q", tok, again)
 	}
 	// 落盘了才算，重启后要能读回来
-	if got := GetWebSettings().SubToken; got != tok {
+	if got := config.GetWebSettings().SubToken; got != tok {
 		t.Fatalf("口令没写进设置: %q", got)
 	}
 }
@@ -118,10 +120,10 @@ func TestSubPathUnderBasePath(t *testing.T) {
 	if _, err := config.InitBasePath(dir); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := SetBasePath("myPath"); err != nil {
+	if _, err := config.SetBasePath("myPath"); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _, _ = SetBasePath("") })
+	t.Cleanup(func() { _, _ = config.SetBasePath("") })
 	if got := subPath("tok123"); got != "/myPath/sub?token=tok123" {
 		t.Fatalf("subPath=%q", got)
 	}
@@ -175,13 +177,13 @@ func TestHandleSubEmptyIsNotEmptyBody(t *testing.T) {
 // 正常路径：只出绑在出口上的入站，整份 base64。
 func TestHandleSubOnlyBoundInbounds(t *testing.T) {
 	useSettings(t)
-	usePanel(t, &fakePanel{inbounds: []Inbound{
+	usePanel(t, &fakePanel{inbounds: []core.Inbound{
 		{ID: 1, Port: 1001, Enable: true, Tag: "in-1001-tcp", BoundTo: "jp-home"},
 		{ID: 2, Port: 1002, Enable: true, Tag: "in-1002-tcp"}, // 没绑出口，走直连
 		{ID: 3, Port: 1003, Enable: false, Tag: "in-1003-tcp", BoundTo: "jp-home"},
 	}})
 	m := core.NewManager(20, t.TempDir())
-	m.SetTunnelForTest(1, &Tunnel{Slot: 1, Node: Node{HostName: "jp-home"}, Status: "up"})
+	m.SetTunnelForTest(1, &core.Tunnel{Slot: 1, Node: vpngate.Node{HostName: "jp-home"}, Status: "up"})
 	tok, _ := subToken()
 
 	rec := httptest.NewRecorder()
@@ -211,7 +213,7 @@ func TestHandleSubOnlyBoundInbounds(t *testing.T) {
 // bound=0 把直连入站也带上，留给"我就想一次拿全"的场景。
 func TestHandleSubAllInbounds(t *testing.T) {
 	useSettings(t)
-	usePanel(t, &fakePanel{inbounds: []Inbound{
+	usePanel(t, &fakePanel{inbounds: []core.Inbound{
 		{ID: 1, Port: 1001, Enable: true, BoundTo: "jp-home"},
 		{ID: 2, Port: 1002, Enable: true},
 	}})
@@ -250,11 +252,11 @@ func TestHandleSubRejectsUnknownTarget(t *testing.T) {
 func TestHandleSubSurfacesPanelError(t *testing.T) {
 	useSettings(t)
 	usePanel(t, &fakePanel{
-		inbounds: []Inbound{{ID: 1, Enable: true, BoundTo: "jp-home"}},
+		inbounds: []core.Inbound{{ID: 1, Enable: true, BoundTo: "jp-home"}},
 		linkErr:  fmt.Errorf("这个后端不生成链接"),
 	})
 	m := core.NewManager(20, t.TempDir())
-	m.SetTunnelForTest(1, &Tunnel{Slot: 1, Node: Node{HostName: "jp-home"}, Status: "up"})
+	m.SetTunnelForTest(1, &core.Tunnel{Slot: 1, Node: vpngate.Node{HostName: "jp-home"}, Status: "up"})
 	tok, _ := subToken()
 
 	rec := httptest.NewRecorder()

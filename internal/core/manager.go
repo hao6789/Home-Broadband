@@ -7,17 +7,20 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	"home-broadband/internal/job"
+	"home-broadband/internal/vpngate"
 )
 
 // Manager 维护所有隧道，负责分配槽位与端口。
 type Manager struct {
 	mu       sync.RWMutex
 	tunnels  map[int]*Tunnel
-	nodes    []Node
+	nodes    []vpngate.Node
 	fetched  time.Time
 	workDir  string
 	maxSlots int
-	Jobs     JobStore
+	Jobs     job.JobStore
 }
 
 func NewManager(maxSlots int, workDir string) *Manager {
@@ -30,7 +33,7 @@ func NewManager(maxSlots int, workDir string) *Manager {
 
 // RefreshNodes 重新拉取节点列表。
 func (m *Manager) RefreshNodes() (int, error) {
-	nodes, err := FetchNodes(60 * time.Second)
+	nodes, err := vpngate.FetchNodes(60 * time.Second)
 	if err != nil {
 		return 0, err
 	}
@@ -41,10 +44,10 @@ func (m *Manager) RefreshNodes() (int, error) {
 	return len(nodes), nil
 }
 
-func (m *Manager) Nodes() ([]Node, time.Time) {
+func (m *Manager) Nodes() ([]vpngate.Node, time.Time) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	out := make([]Node, len(m.nodes))
+	out := make([]vpngate.Node, len(m.nodes))
 	copy(out, m.nodes)
 	return out, m.fetched
 }
@@ -71,7 +74,7 @@ func (m *Manager) freeSlot() (int, error) {
 }
 
 // Start 为指定节点开一条隧道，返回分配到的本地端口。
-func (m *Manager) Start(node Node) (*Tunnel, error) {
+func (m *Manager) Start(node vpngate.Node) (*Tunnel, error) {
 	m.mu.Lock()
 	slot, err := m.freeSlot()
 	if err != nil {
@@ -242,7 +245,7 @@ func (m *Manager) tryNode(t *Tunnel) error {
 // 打头的一定是 t.Node：自动重连的目标是把这条出口恢复原样，先试原节点。
 // 备选会避开用户手动换掉过的节点——那些是他明确不想要的 IP，
 // 让重连悄悄换回去等于撤销了他的操作。
-func (m *Manager) candidatesFor(t *Tunnel) []Node {
+func (m *Manager) candidatesFor(t *Tunnel) []vpngate.Node {
 	const maxTries = 6
 	first := t.Node
 	avoid := t.swapAvoid()
@@ -267,7 +270,7 @@ func (m *Manager) candidatesFor(t *Tunnel) []Node {
 		}
 	}
 
-	out := []Node{first}
+	out := []vpngate.Node{first}
 	for _, n := range m.nodePoolLocked() {
 		if len(out) >= maxTries {
 			break
@@ -338,7 +341,7 @@ func (m *Manager) Swap(slot int) error {
 // 记两个：换下来的那个，以及刚挑中的这个。挑中的也记是因为真机上踩到过——
 // 它连不上时会被候选列表换成别人，但它自己没进历史，
 // 于是下次点换节点又从它开始试一遍，白等一轮握手超时。
-func (m *Manager) pickSwapTarget(t *Tunnel) (Node, error) {
+func (m *Manager) pickSwapTarget(t *Tunnel) (vpngate.Node, error) {
 	avoid := t.swapAvoid()
 	picks, err := m.pickNodes(t.Node.CountryCode, 1, avoid)
 	if err != nil && len(avoid) > 1 {
@@ -348,7 +351,7 @@ func (m *Manager) pickSwapTarget(t *Tunnel) (Node, error) {
 		picks, err = m.pickNodes(t.Node.CountryCode, 1, t.swapAvoid())
 	}
 	if err != nil {
-		return Node{}, err
+		return vpngate.Node{}, err
 	}
 	t.rememberSwap(t.Node.HostName)
 	t.rememberSwap(picks[0].HostName)

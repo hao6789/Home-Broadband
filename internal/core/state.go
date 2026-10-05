@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"home-broadband/internal/config"
+	"home-broadband/internal/vpngate"
 )
 
 // persistedTunnel 是隧道在磁盘上的形态。
@@ -80,7 +81,7 @@ func (m *Manager) RestoreState() (int, error) {
 	}
 
 	// 从当前节点列表补回地区、延迟等元数据；节点已下线时退回存盘的最小信息
-	known := map[string]Node{}
+	known := map[string]vpngate.Node{}
 	for _, n := range m.nodes {
 		known[n.HostName] = n
 	}
@@ -89,7 +90,7 @@ func (m *Manager) RestoreState() (int, error) {
 		node, ok := known[p.HostName]
 		if !ok {
 			// 节点已从 VPN Gate 列表消失，用存盘的信息重建
-			node = Node{
+			node = vpngate.Node{
 				HostName:    p.HostName,
 				CountryCode: p.CountryCode,
 				Country:     p.Country,

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"home-broadband/internal/vpngate"
 )
 
 // 注意 obj 本身是一个 JSON 字符串，要二次解析。
@@ -387,7 +389,7 @@ func (x *XUI) CloneToTunnels(templateID int, hosts []string, tunnels []*Tunnel) 
 			return created, err
 		}
 		if remark, ok := clone["remark"].(string); ok {
-			unique := UniqueRemark(remark, takenRemarks)
+			unique := vpngate.UniqueRemark(remark, takenRemarks)
 			clone["remark"] = unique
 			takenRemarks[unique] = true
 		}
@@ -501,7 +503,7 @@ func cloneInboundPayload(tpl map[string]any, port int, t *Tunnel) (map[string]an
 // exitLabel 给复制出来的入站起个好认的名字：国旗 + 中文国名 + 出口 IP 末段。
 // 同一地区可能有多条隧道，带上末段才能区分。
 func exitLabel(t *Tunnel) string {
-	place := NodeLabel(t.Node)
+	place := vpngate.NodeLabel(t.Node)
 
 	suffix := t.Node.HostName
 	if t.ExitIP != "" {
@@ -671,7 +673,7 @@ func (x *XUI) Rebind(oldHost string, target *Tunnel, tunnels []*Tunnel) error {
 // 既会把用户自己的备注切坏，又会在反复复制时叠成 "a-JP-243-VN-165" 这种。
 // 现在整体替换，用户手工改过的名字一律不碰。
 func renameExitLabel(remark, newLabel string) string {
-	if newLabel == "" || !IsGeneratedLabel(remark) {
+	if newLabel == "" || !vpngate.IsGeneratedLabel(remark) {
 		return remark
 	}
 	return newLabel

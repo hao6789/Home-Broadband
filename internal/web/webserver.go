@@ -31,9 +31,9 @@ func NewWebServer(h http.Handler) *webServer {
 	return &webServer{handler: h}
 }
 
-// serve 用当前 WebSettings 起第一个监听并阻塞。返回时说明监听彻底退出。
+// serve 用当前 config.WebSettings 起第一个监听并阻塞。返回时说明监听彻底退出。
 func (s *webServer) Serve() error {
-	cfg := GetWebSettings()
+	cfg := config.GetWebSettings()
 	if err := s.reload(cfg); err != nil {
 		return err
 	}
@@ -46,7 +46,7 @@ func (s *webServer) Serve() error {
 // 地址变了：先绑新、再关旧——新地址绑不上时旧监听不受影响。
 // 地址没变（比如 HTTP↔HTTPS 切换）：必须先关旧监听才能重绑同端口；
 // 证书已经在 ApplyWebSettings 里校验过，这里 bind 失败概率极低。
-func (s *webServer) reload(cfg WebSettings) error {
+func (s *webServer) reload(cfg config.WebSettings) error {
 	addr := cfg.ListenAddrString()
 
 	bindNew := func() (net.Listener, error) {
@@ -118,11 +118,11 @@ func (s *webServer) reload(cfg WebSettings) error {
 }
 
 // ApplyWebSettings 校验、落盘并切换监听。任一步失败都不改动线上监听。
-func (s *webServer) ApplyWebSettings(next WebSettings) error {
-	if err := ValidatePort(next.Port); err != nil {
+func (s *webServer) ApplyWebSettings(next config.WebSettings) error {
+	if err := config.ValidatePort(next.Port); err != nil {
 		return err
 	}
-	norm, err := NormalizeListenAddr(next.ListenAddr)
+	norm, err := config.NormalizeListenAddr(next.ListenAddr)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (s *webServer) ApplyWebSettings(next WebSettings) error {
 		return err
 	}
 
-	cur := GetWebSettings()
+	cur := config.GetWebSettings()
 	// 端口、监听地址和证书都没变就只需要确保已生效，避免无谓重绑
 	if next.Port == cur.Port && next.ListenAddr == cur.ListenAddr &&
 		next.TLSCert == cur.TLSCert && next.TLSKey == cur.TLSKey {

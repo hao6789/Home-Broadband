@@ -1,19 +1,24 @@
 package core
 
-import "testing"
+import (
+	"testing"
 
-func mgrWith(nodes []Node, running ...string) *Manager {
+	"home-broadband/internal/job"
+	"home-broadband/internal/vpngate"
+)
+
+func mgrWith(nodes []vpngate.Node, running ...string) *Manager {
 	m := NewManager(20, t_tmpdir)
 	m.nodes = nodes
 	for i, h := range running {
-		m.tunnels[i+1] = &Tunnel{Slot: i + 1, Node: Node{HostName: h}, Status: "up"}
+		m.tunnels[i+1] = &Tunnel{Slot: i + 1, Node: vpngate.Node{HostName: h}, Status: "up"}
 	}
 	return m
 }
 
 const t_tmpdir = "/tmp"
 
-var sample = []Node{
+var sample = []vpngate.Node{
 	{HostName: "jp1", CountryCode: "JP", Country: "Japan", SpeedMbps: 300, Ping: 10, Residential: true},
 	{HostName: "jp2", CountryCode: "JP", Country: "Japan", SpeedMbps: 200, Ping: 20, Residential: true},
 	{HostName: "kr1", CountryCode: "KR", Country: "Korea", SpeedMbps: 150, Ping: 30, Residential: true},
@@ -50,7 +55,7 @@ func TestRegionsExcludesRunning(t *testing.T) {
 }
 
 func TestJobLifecycle(t *testing.T) {
-	var s JobStore
+	var s job.JobStore
 	j := s.New("测试", []string{"a", "b"})
 	if v := j.View(); v.Total != 2 || v.Done != 0 || v.Status != "running" {
 		t.Fatalf("初始状态不对: %+v", v)

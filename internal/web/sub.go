@@ -5,9 +5,11 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
-	"home-broadband/internal/config"
 	"net/http"
 	"strings"
+
+	"home-broadband/internal/config"
+	"home-broadband/internal/core"
 )
 
 // 订阅：把 home-broadband 管着的节点链接聚成一条地址，客户端订阅一次就全有了。
@@ -25,7 +27,7 @@ const subTokenLen = 20
 
 // subToken 返回当前订阅口令，没有就生成一串并落盘。
 func subToken() (string, error) {
-	if tok := strings.TrimSpace(GetWebSettings().SubToken); tok != "" {
+	if tok := strings.TrimSpace(config.GetWebSettings().SubToken); tok != "" {
 		return tok, nil
 	}
 	return resetSubToken()
@@ -46,7 +48,7 @@ func resetSubToken() (string, error) {
 
 // subPath 是订阅地址在当前访问路径下的相对部分，形如 /aB3xY9pQ/sub?token=xxx。
 func subPath(tok string) string {
-	return CurrentBasePath() + "/sub?token=" + tok
+	return config.CurrentBasePath() + "/sub?token=" + tok
 }
 
 // subFullURL 按当前请求推断一个完整地址。界面上更准的做法是用
@@ -58,8 +60,8 @@ func subFullURL(r *http.Request, tok string) string {
 	}
 	host := r.Host
 	if host == "" {
-		if ip := HostPublicIP(); ip != "" {
-			host = ip + ":" + fmt.Sprint(GetWebSettings().Port)
+		if ip := core.HostPublicIP(); ip != "" {
+			host = ip + ":" + fmt.Sprint(config.GetWebSettings().Port)
 		}
 	}
 	return scheme + "://" + host + subPath(tok)
@@ -101,8 +103,8 @@ func apiSubReset(w http.ResponseWriter, r *http.Request) {
 //
 // boundOnly=true 只要绑在出口上的入站。这是默认行为：订阅的意义是
 // "一条地址拿到我所有家宽出口"，把走直连的入站混进去会让人以为那些也是家宽。
-func subLinks(m *Manager, host string, boundOnly bool) ([]string, error) {
-	p, err := OpenPanel()
+func subLinks(m *core.Manager, host string, boundOnly bool) ([]string, error) {
+	p, err := core.OpenPanel()
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +143,7 @@ func subLinks(m *Manager, host string, boundOnly bool) ([]string, error) {
 //	target 输出格式：base64（默认，通用）或 links（明文，排查用）
 //	host   节点链接里的连接地址，默认用母机公网 IP
 //	bound  0 表示把没绑出口的入站也放进来
-func handleSub(m *Manager) http.HandlerFunc {
+func handleSub(m *core.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		want, err := subToken()
@@ -175,7 +177,7 @@ func handleSub(m *Manager) http.HandlerFunc {
 		links, err := subLinks(m, host, q.Get("bound") != "0")
 		if err != nil {
 			// 节点后端不给链接
-			http.Error(w, "生成订阅失败: "+FirstLine(err.Error()), http.StatusBadGateway)
+			http.Error(w, "生成订阅失败: "+core.FirstLine(err.Error()), http.StatusBadGateway)
 			return
 		}
 		if len(links) == 0 {
