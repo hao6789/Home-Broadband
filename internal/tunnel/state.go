@@ -36,16 +36,16 @@ func (m *Manager) saveState() error {
 	for _, t := range m.Tunnels() {
 		// 只跳过用户主动停掉的。starting/failed 的隧道也要存：
 		// 它们正在重连或等着重试，漏存会让重启后凭空少几个出口。
-		if t.Status == "stopped" {
+		if t.GetStatus() == "stopped" {
 			continue
 		}
 		st.Tunnels = append(st.Tunnels, persistedTunnel{
 			Slot:        t.Slot,
 			Port:        t.Port,
-			HostName:    t.Node.HostName,
-			CountryCode: t.Node.CountryCode,
-			Country:     t.Node.Country,
-			Config:      t.Node.Config,
+			HostName:    t.GetNode().HostName,
+			CountryCode: t.GetNode().CountryCode,
+			Country:     t.GetNode().Country,
+			Config:      t.GetNode().Config,
 			SocksUser:   t.Cred.User,
 			SocksPass:   t.Cred.Pass,
 			PrevHost:    t.prevHostOf(),
@@ -126,7 +126,7 @@ func (m *Manager) RestoreState() (int, error) {
 func (m *Manager) restoreTunnel(t *Tunnel) {
 	prev := t.prevHostOf()
 	m.bringUpPersist(t, true, true)
-	if prev == "" || t.Status != "up" {
+	if prev == "" || t.GetStatus() != "up" {
 		return
 	}
 	// 上次换节点改完隧道就中断了，入站还指着旧节点。不接回来的话它会一直
@@ -136,7 +136,7 @@ func (m *Manager) restoreTunnel(t *Tunnel) {
 		return
 	}
 	log.Printf("出口 %d 上次换节点没收尾，已把原来绑着 %s 的入站接到 %s",
-		t.Slot, prev, t.Node.HostName)
+		t.Slot, prev, t.GetNode().HostName)
 	t.setPrevHost("")
 	if err := m.saveState(); err != nil {
 		log.Printf("保存状态失败: %v", err)

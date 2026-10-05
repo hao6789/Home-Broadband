@@ -418,8 +418,8 @@ func apiXUIInbounds(m *tunnel.Manager) http.HandlerFunc {
 func liveHosts(m *tunnel.Manager) map[string]bool {
 	live := map[string]bool{}
 	for _, t := range m.Tunnels() {
-		if t.Status == "up" {
-			live[tunnel.SanitizeTag(t.Node.HostName)] = true
+		if t.GetStatus() == "up" {
+			live[tunnel.SanitizeTag(t.GetNode().HostName)] = true
 		}
 	}
 	return live
@@ -468,8 +468,8 @@ func apiXUIClone(m *tunnel.Manager) http.HandlerFunc {
 			}
 		} else {
 			for _, t := range tunnels {
-				if t.Status == "up" {
-					hosts = append(hosts, t.Node.HostName)
+				if t.GetStatus() == "up" {
+					hosts = append(hosts, t.GetNode().HostName)
 				}
 			}
 		}

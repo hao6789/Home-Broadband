@@ -82,11 +82,11 @@ func (m *Manager) runProvision(job *job.Job, picks []vpngate.Node, templateID in
 		go func(i int, t *Tunnel) {
 			defer wg.Done()
 			m.waitUp(t)
-			if t.Status == "up" {
-				job.Set(i, "ok", t.ExitIP)
+			if t.GetStatus() == "up" {
+				job.Set(i, "ok", t.getExitIP())
 				return
 			}
-			job.Set(i, "failed", FirstLine(t.Err))
+			job.Set(i, "failed", FirstLine(t.getErr()))
 		}(i, t)
 	}
 	wg.Wait()
@@ -98,8 +98,8 @@ func (m *Manager) runProvision(job *job.Job, picks []vpngate.Node, templateID in
 	step := len(picks)
 	var hosts []string
 	for _, t := range started {
-		if t != nil && t.Status == "up" {
-			hosts = append(hosts, t.Node.HostName)
+		if t != nil && t.GetStatus() == "up" {
+			hosts = append(hosts, t.GetNode().HostName)
 		}
 	}
 	if len(hosts) == 0 {
@@ -128,7 +128,7 @@ func (m *Manager) waitUp(t *Tunnel) {
 	const maxWait = 5 * time.Minute
 	deadline := time.Now().Add(maxWait)
 	for time.Now().Before(deadline) {
-		if t.Status == "up" || t.Status == "failed" || t.Status == "stopped" {
+		if t.GetStatus() == "up" || t.GetStatus() == "failed" || t.GetStatus() == "stopped" {
 			return
 		}
 		time.Sleep(time.Second)
@@ -145,7 +145,7 @@ func (m *Manager) pickNodes(region string, count int, avoid map[string]bool) ([]
 
 	used := map[string]bool{}
 	for _, t := range m.tunnels {
-		used[t.Node.HostName] = true
+		used[t.GetNode().HostName] = true
 	}
 
 	pool := m.nodePoolLocked()
@@ -182,7 +182,7 @@ func (m *Manager) pickEveryRegion(perRegion int) ([]vpngate.Node, error) {
 	m.mu.RLock()
 	used := map[string]bool{}
 	for _, t := range m.tunnels {
-		used[t.Node.HostName] = true
+		used[t.GetNode().HostName] = true
 	}
 	room := m.maxSlots - len(m.tunnels)
 	pool := m.nodePoolLocked()
@@ -283,7 +283,7 @@ func (m *Manager) Regions() []RegionStat {
 
 	used := map[string]bool{}
 	for _, t := range m.tunnels {
-		used[t.Node.HostName] = true
+		used[t.GetNode().HostName] = true
 	}
 
 	byCode := map[string]*RegionStat{}

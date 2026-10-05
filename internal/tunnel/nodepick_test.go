@@ -100,7 +100,7 @@ func TestSwapAvoidsPreviousNode(t *testing.T) {
 		if err != nil {
 			t.Fatalf("第 %d 次换节点挑不到: %v", i+1, err)
 		}
-		tn.Node = node
+		tn.setNode(node)
 		for _, h := range seen {
 			if h == tn.Node.HostName {
 				t.Fatalf("第 %d 次换节点又换回了用过的 %s", i+1, h)
@@ -130,7 +130,7 @@ func TestSwapRemembersFailedPick(t *testing.T) {
 		t.Fatalf("按速度该挑到 jp2，实际 %s", first.HostName)
 	}
 	// jp2 连不上，候选机制把隧道落到了 jp3
-	tn.Node = pool[2]
+	tn.setNode(pool[2])
 
 	// 第二次换节点：不能再挑 jp2，它刚才就连不上
 	second, err := m.pickSwapTarget(tn)

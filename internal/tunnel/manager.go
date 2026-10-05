@@ -171,15 +171,15 @@ func (m *Manager) bringUpPersist(t *Tunnel, notify bool, persist bool) {
 			if persist {
 				return
 			}
-			t.Status = "failed"
+			t.setStatus("failed")
 			if serr := m.saveState(); serr != nil {
 				log.Printf("保存状态失败: %v", serr)
 			}
 			return
 		}
 
-		t.Status = "starting"
-		t.Err = fmt.Sprintf("暂无可用节点，%.0f 秒后重试", backoff.Seconds())
+		t.setStatus("starting")
+		t.setErr(fmt.Sprintf("暂无可用节点，%.0f 秒后重试", backoff.Seconds()))
 		log.Printf("隧道 %d 一轮候选均失败，%.0f 秒后刷新节点重试", t.Slot, backoff.Seconds())
 		time.Sleep(backoff)
 		if !m.tunnelActive(t) {
@@ -210,16 +210,16 @@ func (m *Manager) tryCandidates(t *Tunnel, notify bool) bool {
 		if i > 0 && m.nodeInUse(node.HostName, t.Slot) {
 			continue
 		}
-		t.Node = node
-		t.Status = "starting"
+		t.setNode(node)
+		t.setStatus("starting")
 		if i > 0 {
-			t.Err = fmt.Sprintf("已换到第 %d 个候选节点", i+1)
+			t.setErr(fmt.Sprintf("已换到第 %d 个候选节点", i+1))
 		}
 
 		err := m.tryNode(t)
 		if err == nil {
-			t.Status = "up"
-			t.Err = ""
+			t.setStatus("up")
+			t.setErr("")
 			if serr := m.saveState(); serr != nil {
 				log.Printf("保存状态失败: %v", serr)
 			}
@@ -237,7 +237,9 @@ func (m *Manager) tryCandidates(t *Tunnel, notify bool) bool {
 // 用指针比对：Stop 会从 map 里删除并把 Status 置 stopped，
 // 重连循环据此退出，避免对着一条已经不存在的隧道空转。
 func (m *Manager) tunnelActive(t *Tunnel) bool {
-	if t.Status == "stopped" {
+	// 先读状态再查表，两把锁不叠加拿，避免与 Stop 的 m.mu -> t.mu 顺序死锁。
+	// 中间的微小竞态无害：状态刚变的话下次循环会看到，表里没了也会返回 false。
+	if t.GetStatus() == "stopped" {
 		return false
 	}
 	m.mu.RLock()
@@ -263,18 +265,18 @@ func (m *Manager) tryNode(t *Tunnel) error {
 	if err != nil {
 		return err
 	}
-	t.ExitIP = ip
+	t.setExitIP(ip)
 	return nil
 }
 
 // candidatesFor 以这条隧道当前的节点打头，后面跟上同地区的其他节点作为备选。
 //
-// 打头的一定是 t.Node：自动重连的目标是把这条出口恢复原样，先试原节点。
+// 打头的一定是 t.GetNode()：自动重连的目标是把这条出口恢复原样，先试原节点。
 // 备选会避开用户手动换掉过的节点——那些是他明确不想要的 IP，
 // 让重连悄悄换回去等于撤销了他的操作。
 func (m *Manager) candidatesFor(t *Tunnel) []vpngate.Node {
 	const maxTries = 6
-	first := t.Node
+	first := t.GetNode()
 	avoid := t.swapAvoid()
 
 	m.mu.RLock()
@@ -282,7 +284,7 @@ func (m *Manager) candidatesFor(t *Tunnel) []vpngate.Node {
 
 	used := map[string]bool{first.HostName: true}
 	for _, other := range m.tunnels {
-		used[other.Node.HostName] = true
+		used[other.GetNode().HostName] = true
 	}
 
 	// 地区决定了备选范围，缺失时先从当前列表补一次，
@@ -349,7 +351,7 @@ func (m *Manager) Swap(slot int) error {
 	if !ok {
 		return fmt.Errorf("槽位 %d 没有运行中的隧道", slot)
 	}
-	if t.Status == "starting" {
+	if t.GetStatus() == "starting" {
 		return fmt.Errorf("这个出口正在连接中，稍等一下")
 	}
 
@@ -357,8 +359,8 @@ func (m *Manager) Swap(slot int) error {
 	if err != nil {
 		return err
 	}
-	oldHost := t.Node.HostName
-	t.Node = node
+	oldHost := t.GetNode().HostName
+	t.setNode(node)
 	m.reconnect(t, oldHost)
 	return nil
 }
@@ -370,17 +372,17 @@ func (m *Manager) Swap(slot int) error {
 // 于是下次点换节点又从它开始试一遍，白等一轮握手超时。
 func (m *Manager) pickSwapTarget(t *Tunnel) (vpngate.Node, error) {
 	avoid := t.swapAvoid()
-	picks, err := m.pickNodes(t.Node.CountryCode, 1, avoid)
+	picks, err := m.pickNodes(t.GetNode().CountryCode, 1, avoid)
 	if err != nil && len(avoid) > 1 {
 		// 这个地区的节点都换过一轮了。清掉历史重新开始，
 		// 总比告诉用户"没得换了"好——转一圈之后原来那些节点未必还是当初的状态。
 		t.forgetSwaps()
-		picks, err = m.pickNodes(t.Node.CountryCode, 1, t.swapAvoid())
+		picks, err = m.pickNodes(t.GetNode().CountryCode, 1, t.swapAvoid())
 	}
 	if err != nil {
 		return vpngate.Node{}, err
 	}
-	t.rememberSwap(t.Node.HostName)
+	t.rememberSwap(t.GetNode().HostName)
 	t.rememberSwap(picks[0].HostName)
 	return picks[0], nil
 }
@@ -444,10 +446,10 @@ func (m *Manager) ReconcileOutbounds() {
 		var up *Tunnel
 		settled := true
 		for _, t := range tunnels {
-			if t.Status == "up" && up == nil {
+			if t.GetStatus() == "up" && up == nil {
 				up = t
 			}
-			if t.Status == "starting" {
+			if t.GetStatus() == "starting" {
 				settled = false
 			}
 		}
@@ -494,7 +496,7 @@ func (m *Manager) nodeInUse(host string, exceptSlot int) bool {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	for slot, t := range m.tunnels {
-		if slot != exceptSlot && t.Node.HostName == host {
+		if slot != exceptSlot && t.GetNode().HostName == host {
 			return true
 		}
 	}

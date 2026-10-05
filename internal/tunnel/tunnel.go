@@ -1,6 +1,7 @@
 package tunnel
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -23,6 +24,12 @@ type SocksCred struct {
 }
 
 // Tunnel 是一条运行中的隧道：一个 netns + 一个 openvpn 进程 + 一个本地 SOCKS5 端口。
+// Status、ExitIP、Err 是多 goroutine 共享的可变状态（拨号、健康检查、
+// Web 层都会读写），必须经由下面的 getter/setter 走 t.mu 访问，
+// 禁止直接读写字段。Slot、Port、Node、Since、Cred 创建后不再变化，
+// 可直接读。
+//
+// JSON 序列化走 MarshalJSON（内部持锁快照），不要直接 json.Marshal(t)。
 type Tunnel struct {
 	Slot   int          `json:"slot"`
 	Port   int          `json:"port"`
@@ -48,6 +55,79 @@ type Tunnel struct {
 	// 两边对不上，那个入站就掉成了没人认领的孤儿。
 	// 这个字段跟着状态一起落盘，重启后照着它把入站接回来。
 	prevHost string
+}
+
+// GetNode 读节点信息（持锁）。Node 在换节点时会被后台 goroutine 改写。
+func (t *Tunnel) GetNode() vpngate.Node {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.Node
+}
+
+// setNode 写节点信息（持锁）。
+func (t *Tunnel) setNode(n vpngate.Node) {
+	t.mu.Lock()
+	t.Node = n
+	t.mu.Unlock()
+}
+
+// GetStatus 读隧道状态（持锁）。
+func (t *Tunnel) GetStatus() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.Status
+}
+
+// setStatus 写隧道状态（持锁）。
+func (t *Tunnel) setStatus(s string) {
+	t.mu.Lock()
+	t.Status = s
+	t.mu.Unlock()
+}
+
+// getExitIP 读出口 IP（持锁）。
+func (t *Tunnel) getExitIP() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.ExitIP
+}
+
+// setExitIP 写出口 IP（持锁）。
+func (t *Tunnel) setExitIP(ip string) {
+	t.mu.Lock()
+	t.ExitIP = ip
+	t.mu.Unlock()
+}
+
+// getErr 读错误信息（持锁）。
+func (t *Tunnel) getErr() string {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.Err
+}
+
+// setErr 写错误信息（持锁）。
+func (t *Tunnel) setErr(e string) {
+	t.mu.Lock()
+	t.Err = e
+	t.mu.Unlock()
+}
+
+// snapshot 在持锁的情况下复制一份只含导出字段的 Tunnel，
+// 供 JSON 序列化使用，避免与后台 goroutine 竞争。
+func (t *Tunnel) snapshot() Tunnel {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return Tunnel{
+		Slot: t.Slot, Port: t.Port, Node: t.Node,
+		Status: t.Status, ExitIP: t.ExitIP, Err: t.Err,
+		Since: t.Since, Cred: t.Cred,
+	}
+}
+
+// MarshalJSON 序列化时持锁快照，保证读到的 Status/ExitIP/Err 一致。
+func (t *Tunnel) MarshalJSON() ([]byte, error) {
+	return json.Marshal(t.snapshot())
 }
 
 // prevHostOf 读"换节点未收尾"标记。

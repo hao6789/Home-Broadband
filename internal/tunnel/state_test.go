@@ -114,7 +114,7 @@ func TestRestoreStateReadsPrevHost(t *testing.T) {
 		t.Fatalf("没读回换节点标记，实际 %q", got)
 	}
 	// 收尾：别让后台的 bringUpPersist 继续折腾
-	tn.Status = "stopped"
+	tn.setStatus("stopped")
 }
 
 // 老版本的状态文件里没有这个字段，读出来该是空的，不能误触发改绑。
@@ -134,7 +134,7 @@ func TestRestoreStateOldFormatHasNoPrevHost(t *testing.T) {
 	if got := tn.prevHostOf(); got != "" {
 		t.Fatalf("老格式不该带标记，实际 %q", got)
 	}
-	tn.Status = "stopped"
+	tn.setStatus("stopped")
 }
 
 func containsStr(s, sub string) bool {

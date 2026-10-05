@@ -132,19 +132,19 @@ func (m *Manager) ExitsOf() ExitsView {
 
 	live := map[string]bool{}
 	for _, t := range tunnels {
-		if t.Status == "up" {
-			live[SanitizeTag(t.Node.HostName)] = true
+		if t.GetStatus() == "up" {
+			live[SanitizeTag(t.GetNode().HostName)] = true
 		}
 	}
 
 	byHost := map[string]int{}
 	for i, t := range tunnels {
-		byHost[SanitizeTag(t.Node.HostName)] = i
+		byHost[SanitizeTag(t.GetNode().HostName)] = i
 		cred := t.credential()
 		view.Exits = append(view.Exits, Exit{
-			Slot: t.Slot, Port: t.Port, Host: t.Node.HostName,
-			Region: t.Node.CountryCode, Country: vpngate.NodeLabel(t.Node),
-			ExitIP: t.ExitIP, Status: t.Status, Err: t.Err, Since: t.Since,
+			Slot: t.Slot, Port: t.Port, Host: t.GetNode().HostName,
+			Region: t.GetNode().CountryCode, Country: vpngate.NodeLabel(t.GetNode()),
+			ExitIP: t.getExitIP(), Status: t.GetStatus(), Err: t.getErr(), Since: t.Since,
 			SocksUser: cred.User, SocksPass: cred.Pass,
 		})
 	}

@@ -21,7 +21,7 @@ func (m *Manager) WatchHealth() {
 
 	for range time.Tick(healthInterval) {
 		for _, t := range m.Tunnels() {
-			if t.Status != "up" {
+			if t.GetStatus() != "up" {
 				continue
 			}
 			if m.tunnelHealthy(t) {
@@ -31,13 +31,13 @@ func (m *Manager) WatchHealth() {
 
 			fails[t.Slot]++
 			if fails[t.Slot] < healthFailures {
-				log.Printf("隧道 %d (%s) 探测失败 %d 次", t.Slot, t.Node.HostName, fails[t.Slot])
+				log.Printf("隧道 %d (%s) 探测失败 %d 次", t.Slot, t.GetNode().HostName, fails[t.Slot])
 				continue
 			}
 
-			log.Printf("隧道 %d (%s) 已掉线，正在换节点重连", t.Slot, t.Node.HostName)
+			log.Printf("隧道 %d (%s) 已掉线，正在换节点重连", t.Slot, t.GetNode().HostName)
 			fails[t.Slot] = 0
-			m.reconnect(t, t.Node.HostName)
+			m.reconnect(t, t.GetNode().HostName)
 		}
 	}
 }
@@ -59,19 +59,19 @@ func (m *Manager) tunnelHealthy(t *Tunnel) bool {
 		return false
 	}
 	// 出口 IP 变了说明 VPN 已经断开，流量退回了母机
-	return got == t.ExitIP
+	return got == t.getExitIP()
 }
 
 // reconnect 就地把一条隧道换到别的节点上，保持槽位与端口不变，
 // 这样已经分发出去的客户端配置仍然可用。
 //
 // oldHost 必须是本次重连前那条隧道真正绑着的节点名。调用方若已经
-// 改过 t.Node（比如手动换节点），就要把改之前的名字传进来，
+// 改过 t.GetNode()（比如手动换节点），就要把改之前的名字传进来，
 // 否则 rebind 找不到旧绑定，入站会掉成孤儿。
 func (m *Manager) reconnect(t *Tunnel, oldHost string) {
-	t.Status = "starting"
-	t.Err = "正在换节点重连"
-	t.ExitIP = ""
+	t.setStatus("starting")
+	t.setErr("正在换节点重连")
+	t.setExitIP("")
 
 	// 动手之前先把"原来绑的是谁"落盘。
 	//
@@ -93,12 +93,12 @@ func (m *Manager) reconnect(t *Tunnel, oldHost string) {
 		// 通知延后到 rebind/resync 之后：那两步会把入站改绑到新节点，
 		// 提前重建配置会因为入站还指着旧节点名而丢掉路由规则
 		m.bringUpPersist(t, false, true)
-		if t.Status != "up" {
+		if t.GetStatus() != "up" {
 			return
 		}
 		// 出站 tag 跟着节点名走，换了节点就要把原来指向它的入站重新绑过去，
 		// 否则面板里的路由会指向一个已经不存在的出站。
-		if t.Node.HostName != oldHost {
+		if t.GetNode().HostName != oldHost {
 			if err := m.rebind(oldHost, t); err != nil {
 				log.Printf("重连后同步 3x-ui 绑定失败: %v", err)
 				return
