@@ -2,7 +2,7 @@
 # home-broadband 管理菜单
 set -uo pipefail
 
-WORK_DIR=/var/lib/home-broadband
+WORK_DIR="${WORK_DIR:-/var/lib/home-broadband}"
 SERVICE=home-broadband
 BIN=/usr/local/bin/home-broadband
 REPO="${REPO:-hao6789/Home-Broadband}"

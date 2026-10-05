@@ -102,11 +102,6 @@ svc_logs_hint() {
   [[ "$INIT_SYS" == systemd ]] && echo "journalctl -u home-broadband -n 30" || echo "cat /var/log/home-broadband.log"
 }
 
-# python3 是解析 config.json 的硬依赖（见 [1/6] 依赖检查）
-need_python3() {
-  command -v python3 >/dev/null || { echo "      缺少 python3，请先安装" >&2; exit 1; }
-}
-
 echo "[1/6] 检查依赖"
 
 # 同一个命令在各发行版里的包名并不一致，按包管理器分别给出。
