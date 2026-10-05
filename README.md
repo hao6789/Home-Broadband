@@ -49,7 +49,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/
 
 拉节点列表时直连失败的兜底，部署在 Cloudflare Workers 上，只转发 VPN Gate 的节点列表接口，不是通用代理。
 
-默认用 `https://h.fch.workers.dev/vpngate`，开箱即用，不需要自己搭。
+默认用 `https://h.111678.xyz/vpngate`，开箱即用，不需要自己搭。
 
 ### 自己部署
 

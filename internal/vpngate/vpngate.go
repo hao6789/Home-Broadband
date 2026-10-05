@@ -18,7 +18,7 @@ const vpngateAPI = "https://www.vpngate.net/api/iphone/"
 
 // vpngateMirror 是直连拿不到节点列表时的兜底（Cloudflare Worker 反代）。
 // 用 HOMEBROADBAND_VPNGATE_MIRROR 可以换成自己的地址，设成空字符串就只走直连。
-const vpngateMirror = "https://h.fch.workers.dev/vpngate"
+const vpngateMirror = "https://h.111678.xyz/vpngate"
 
 // mirrorKey 只是让反代不被爬虫和端口扫描白嫖，不是安全边界。
 const mirrorKey = "TmvK6Au0R21RFjD5Ed4P"
