@@ -24,10 +24,9 @@ type SocksCred struct {
 }
 
 // Tunnel 是一条运行中的隧道：一个 netns + 一个 openvpn 进程 + 一个本地 SOCKS5 端口。
-// Status、ExitIP、Err 是多 goroutine 共享的可变状态（拨号、健康检查、
-// Web 层都会读写），必须经由下面的 getter/setter 走 t.mu 访问，
-// 禁止直接读写字段。Slot、Port、Node、Since、Cred 创建后不再变化，
-// 可直接读。
+// Status、Node、ExitIP、Err 是多 goroutine 共享的可变状态（拨号、换节点、
+// 健康检查、Web 层都会读写），必须经由下面的 getter/setter 走 t.mu 访问，
+// 禁止直接读写字段。Slot、Port、Since、Cred 创建后不再变化，可直接读。
 //
 // JSON 序列化走 MarshalJSON（内部持锁快照），不要直接 json.Marshal(t)。
 type Tunnel struct {
@@ -307,7 +306,7 @@ func (t *Tunnel) teardownNetns() {
 func (t *Tunnel) startOpenVPN(dir string) error {
 	ns := t.nsName()
 	cfgPath := filepath.Join(dir, ns+".ovpn")
-	if err := os.WriteFile(cfgPath, []byte(t.Node.Config), 0600); err != nil {
+	if err := os.WriteFile(cfgPath, []byte(t.GetNode().Config), 0600); err != nil {
 		return fmt.Errorf("写配置失败: %w", err)
 	}
 	authPath := filepath.Join(dir, "auth.txt")
