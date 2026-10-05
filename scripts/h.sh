@@ -9,6 +9,48 @@ REPO="${REPO:-hao6789/Home-Broadband}"
 
 G='\033[0;32m'; R='\033[0;31m'; Y='\033[0;33m'; B='\033[0;36m'; D='\033[2m'; N='\033[0m'
 
+# ── config.json 读写：配置统一后唯一的权威来源 ──────────
+# 散文件（settings.json/password/basepath）已废弃，只在迁移时读一次。
+CFG="$WORK_DIR/config.json"
+
+cfg_get() { # cfg_get <key>：读顶层字段
+  python3 -c "import json; print(json.load(open('$CFG')).get('$1',''))" 2>/dev/null
+}
+cfg_get_web() { # cfg_get_web <key>：读 web 段字段
+  python3 -c "import json; print(json.load(open('$CFG')).get('web',{}).get('$1',''))" 2>/dev/null
+}
+cfg_set() { # cfg_set <key> <value>：写顶层字段（字符串）
+  python3 - "$CFG" "$1" "$2" <<'PY' 2>/dev/null
+import json, sys
+f, k, v = sys.argv[1], sys.argv[2], sys.argv[3]
+d = json.load(open(f))
+d[k] = v
+json.dump(d, open(f, 'w'), indent=2)
+PY
+  chmod 600 "$CFG"
+}
+cfg_set_web() { # cfg_set_web <key> <value>：写 web 段字段
+  local k="$1" v="$2"
+  if [[ $v =~ ^[0-9]+$ ]]; then
+    python3 - "$CFG" "$k" "$v" <<'PY' 2>/dev/null
+import json, sys
+f, k, v = sys.argv[1], sys.argv[2], int(sys.argv[3])
+d = json.load(open(f))
+d.setdefault('web', {})[k] = v
+json.dump(d, open(f, 'w'), indent=2)
+PY
+  else
+    python3 - "$CFG" "$k" "$v" <<'PY' 2>/dev/null
+import json, sys
+f, k, v = sys.argv[1], sys.argv[2], sys.argv[3]
+d = json.load(open(f))
+d.setdefault('web', {})[k] = v
+json.dump(d, open(f, 'w'), indent=2)
+PY
+  fi
+  chmod 600 "$CFG"
+}
+
 need_root() {
   [[ $EUID -eq 0 ]] || { echo -e "${R}需要 root${N}"; exit 1; }
 }
@@ -73,14 +115,13 @@ svc_state() {
   fi
 }
 
-# 端口以 settings.json 为准。老版本把 -web 写死在服务文件里，
+# 端口以 config.json 的 web.port 为准。老版本把 -web 写死在服务文件里，
 # 两处各改各的会互相拽回旧值，所以这里只认工作目录下的配置。
 web_port() {
   local p
-  p=$(sed -n 's/.*"port"[[:space:]]*:[[:space:]]*\([0-9]*\).*/\1/p' \
-        "$WORK_DIR/settings.json" 2>/dev/null | head -1)
+  p=$(cfg_get_web port)
   [[ -n $p ]] && { echo "$p"; return; }
-  # 兼容老安装：settings.json 还没生成时退回读服务文件
+  # 兼容老安装：config.json 还没生成时退回读服务文件
   grep -oE '\-web [0-9]+' "$UNIT" 2>/dev/null \
     | grep -oE '[0-9]+' | head -1 || echo 8899
 }
@@ -97,8 +138,8 @@ pause() {
 show_info() {
   local state port bp pw ip ver n autostart
   state=$(svc_state); port=$(web_port)
-  bp=$(cat "$WORK_DIR/basepath" 2>/dev/null || echo "-")
-  pw=$(cat "$WORK_DIR/password" 2>/dev/null || echo "-")
+  bp=$(cfg_get basepath); [[ -z $bp ]] && bp="-"
+  pw=$(cfg_get password); [[ -z $pw ]] && pw="-"
   ip=$(public_ip)
   ver=$("$BIN" -version 2>/dev/null || echo '-')
   n=$(ls -d /var/run/netns/hb* 2>/dev/null | wc -l | tr -d ' ')
@@ -119,8 +160,8 @@ show_info() {
 list_tunnels() {
   local port bp pw ck
   port=$(web_port)
-  bp=$(cat "$WORK_DIR/basepath" 2>/dev/null)
-  pw=$(cat "$WORK_DIR/password" 2>/dev/null)
+  bp=$(cfg_get basepath)
+  pw=$(cfg_get password)
   ck=$(mktemp)
 
   curl -s --max-time 10 -c "$ck" -X POST -d "password=${pw}" \
@@ -162,14 +203,9 @@ change_port() {
   if ss -tln 2>/dev/null | grep -q ":${new} "; then
     echo -e "  ${R}端口 ${new} 已被占用${N}"; return
   fi
-  # 写 settings.json（权威来源），并把服务文件里可能残留的 -web 一并同步，
+  # 写 config.json 的 web.port（权威来源），并把服务文件里可能残留的 -web 一并同步，
   # 免得老安装重启后又被写死的旧端口拽回去。
-  if [[ -f "$WORK_DIR/settings.json" ]]; then
-    sed -i "s/\"port\"[[:space:]]*:[[:space:]]*[0-9]*/\"port\": ${new}/" "$WORK_DIR/settings.json"
-  else
-    printf '{\n  "port": %s,\n  "listen_addr": ""\n}\n' "$new" > "$WORK_DIR/settings.json"
-    chmod 600 "$WORK_DIR/settings.json"
-  fi
+  cfg_set_web port "$new"
   sed -i "s/-web ${cur}/-web ${new}/" "$UNIT" 2>/dev/null
   svc_reload
   svc_restart
@@ -183,8 +219,8 @@ reset_password() {
   if [[ -z $pw ]]; then
     pw=$(head -c 9 /dev/urandom | od -An -tx1 | tr -d ' \n')
   fi
-  umask 077
-  echo "$pw" > "$WORK_DIR/password"
+  cfg_set password "$pw"
+  # 让已登录的会话失效，下次用新口令登录
   svc_restart
   echo -e "  ${G}新口令: ${pw}${N}"
 }
@@ -194,16 +230,13 @@ reset_basepath() {
   echo
   read -rp "  新访问路径 (留空则随机生成): " bp
   if [[ -z $bp ]]; then
-    rm -f "$WORK_DIR/basepath"
-    svc_restart
-    sleep 2
-    bp=$(cat "$WORK_DIR/basepath" 2>/dev/null)
+    bp=$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c 12)
+    cfg_set basepath "$bp"
   else
     bp=${bp#/}; bp=${bp%/}
-    umask 077
-    echo "$bp" > "$WORK_DIR/basepath"
-    svc_restart
+    cfg_set basepath "$bp"
   fi
+  svc_restart
   echo -e "  ${G}新路径: /${bp}/${N}"
 }
 
@@ -254,30 +287,6 @@ show_links() {
 # ── 证书管理：给面板办 HTTPS 证书 ──────────────────────
 ACME_BIN=/root/.acme.sh/acme.sh
 CERT_BASE=/root/cert
-
-# 在 settings.json 里设置字符串字段：有则改、无则加
-json_set() {
-  local f="$1" k="$2" v="$3"
-  if [[ ! -f $f ]]; then
-    printf '{\n  "%s": "%s"\n}\n' "$k" "$v" > "$f"
-    chmod 600 "$f"
-    return
-  fi
-  v=${v//\\/\\\\}; v=${v//\"/\\\"}
-  if grep -q "\"$k\"[[:space:]]*:" "$f"; then
-    sed -i "s|\"$k\"[[:space:]]*:[[:space:]]*\"[^\"]*\"|\"$k\": \"$v\"|" "$f"
-  else
-    awk -v k="$k" -v v="$v" '
-      { l[NR]=$0 }
-      END {
-        n=NR
-        for(i=n;i>=1;i--) if(l[i]!~/^[ \t]*$/){ last=i; break }
-        for(j=last-1;j>=1;j--) if(l[j]!~/^[ \t]*$/){ pl=j; break }
-        if(l[pl]!~/,[ \t]*$/) l[pl]=l[pl] ","
-        for(i=1;i<=n;i++){ if(i==last) print "  \""k"\": \""v"\""; print l[i] }
-      }' "$f" > "$f.new" && mv "$f.new" "$f"
-  fi
-}
 
 # 找 acme.sh：3x-ui 装过就直接复用，没有才自己装
 ensure_acme() {
@@ -364,11 +373,11 @@ cert_apply() {
   fi
   chmod 600 "$cdir/privkey.pem"
 
-  json_set "$WORK_DIR/settings.json" tls_cert "$cdir/fullchain.pem"
-  json_set "$WORK_DIR/settings.json" tls_key "$cdir/privkey.pem"
+  cfg_set_web tls_cert "$cdir/fullchain.pem"
+  cfg_set_web tls_key "$cdir/privkey.pem"
   svc_restart
   local port bp
-  port=$(web_port); bp=$(cat "$WORK_DIR/basepath" 2>/dev/null)
+  port=$(web_port); bp=$(cfg_get basepath)
   echo -e "  ${G}证书已启用${N}"
   echo -e "  面板地址  ${B}https://$(public_ip):${port}/${bp}/${N}"
 }
@@ -421,8 +430,8 @@ cert_revoke() {
   "$ACME_BIN" --revoke -d "$domain" 2>/dev/null
   rm -rf "${CERT_BASE}/${domain}"
   # 面板切回 HTTP
-  json_set "$WORK_DIR/settings.json" tls_cert ""
-  json_set "$WORK_DIR/settings.json" tls_key ""
+  cfg_set_web tls_cert ""
+  cfg_set_web tls_key ""
   svc_restart
   echo -e "  ${G}已吊销，面板切回 HTTP${N}"
 }
@@ -450,20 +459,23 @@ cert_menu() {
   done
 }
 
-# 老版本把 -web 写死在服务文件里，和 settings.json 互相拽回旧值。
-# 更新时把端口搬进配置再从服务文件里摘掉，之后只认一处。
+# 老版本把 -web 写死在服务文件里，和配置互相拽回旧值。
+# 更新时把端口搬进 config.json 再从服务文件里摘掉，之后只认一处。
 migrate_port_to_settings() {
   local unit_port
   unit_port=$(grep -oE '\-web [0-9]+' "$UNIT" 2>/dev/null | grep -oE '[0-9]+' | head -1)
   [[ -z $unit_port ]] && return
 
-  if [[ ! -f "$WORK_DIR/settings.json" ]]; then
-    printf '{\n  "port": %s,\n  "listen_addr": ""\n}\n' "$unit_port" > "$WORK_DIR/settings.json"
-    chmod 600 "$WORK_DIR/settings.json"
+  if [[ ! -f $CFG ]]; then
+    # config.json 还不存在（极老版本），先建一个最小的
+    printf '{\n  "version": 1,\n  "web": {\n    "port": %s,\n    "listen_addr": ""\n  }\n}\n' "$unit_port" > "$CFG"
+    chmod 600 "$CFG"
+  else
+    cfg_set_web port "$unit_port"
   fi
   sed -i "s/-web ${unit_port} //" "$UNIT"
   svc_reload
-  echo "  已把端口 ${unit_port} 迁移到 settings.json"
+  echo "  已把端口 ${unit_port} 迁移到 config.json"
 }
 
 do_update() {

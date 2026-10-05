@@ -28,11 +28,19 @@ else
   exit 1
 fi
 
-# seed_settings 把端口落进 settings.json —— 程序、h 菜单、Web 界面都以它为准。
+# seed_settings 把端口落进配置 —— 程序、h 菜单、Web 界面都以它为准。
 #
 # 重装时不覆盖用户已经改过的端口：除非这次显式指定了 WEB_PORT，
 # 否则沿用原值，免得重装一次把人家改好的端口打回默认。
+# 配置统一后权威来源是 config.json；老散文件 settings.json 只在首次启动时被迁移。
 seed_settings() {
+  # 已有 config.json：直接沿用里面的端口（除非显式指定了新的）
+  if [[ -f "${WORK_DIR}/config.json" && -z "${WEB_PORT_EXPLICIT:-}" ]]; then
+    local cur
+    cur=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('web',{}).get('port',''))" 2>/dev/null)
+    [[ -n $cur ]] && { WEB_PORT="$cur"; return; }
+  fi
+  # 全新安装：写 settings.json，首次启动时自动迁移进 config.json
   local f="${WORK_DIR}/settings.json"
   if [[ -f "$f" ]] && [[ -z "${WEB_PORT_EXPLICIT:-}" ]]; then
     local cur
@@ -45,7 +53,7 @@ seed_settings() {
 
 svc_install() {
   if [[ "$INIT_SYS" == systemd ]]; then
-    # 端口不写进服务文件：它由 ${WORK_DIR}/settings.json 决定（见 seed_settings），
+    # 端口不写进服务文件：它由 ${WORK_DIR}/config.json 决定（见 seed_settings），
     # 两处都写会互相拽回旧值——界面改完重启失效，或 f 改完被配置覆盖。
     # 老版本模板里可能还带 -web，一并去掉。
     sed "s#-web [0-9]* ##; s#-dir /var/lib/home-broadband#-dir ${WORK_DIR}#" deploy/home-broadband.service \
@@ -94,6 +102,11 @@ svc_logs_hint() {
   [[ "$INIT_SYS" == systemd ]] && echo "journalctl -u home-broadband -n 30" || echo "cat /var/log/home-broadband.log"
 }
 
+# python3 是解析 config.json 的硬依赖（见 [1/6] 依赖检查）
+need_python3() {
+  command -v python3 >/dev/null || { echo "      缺少 python3，请先安装" >&2; exit 1; }
+}
+
 echo "[1/6] 检查依赖"
 
 # 同一个命令在各发行版里的包名并不一致，按包管理器分别给出。
@@ -104,6 +117,7 @@ pkg_for() {
     curl)     echo curl ;;
     openssl)  echo openssl ;;
     tar)      echo tar ;;
+    python3)  case "$mgr" in apk) echo python3 ;; *) echo python3 ;; esac ;;
     ip)       case "$mgr" in apk) echo iproute2 ;; pacman) echo iproute2 ;; *) echo iproute ;; esac ;;
     iptables) echo iptables ;;
     unzip)    echo unzip ;;
@@ -137,7 +151,7 @@ MGR=$(detect_mgr)
 [[ "$MGR" == "apt-get" ]] && iproute_pkg=iproute2 || iproute_pkg=iproute
 
 need_cmd=()
-for c in openvpn curl openssl tar iptables; do
+for c in openvpn curl openssl tar iptables python3; do
   command -v "$c" >/dev/null || need_cmd+=("$c")
 done
 command -v ip >/dev/null || need_cmd+=(ip)
