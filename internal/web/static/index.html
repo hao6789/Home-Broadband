@@ -1092,10 +1092,14 @@ function renderRegions(){
   const kw = $('#rgfilter').value.trim().toLowerCase();
   const list = regions.filter(r => !kw
     || r.code.toLowerCase().includes(kw) || r.name.toLowerCase().includes(kw));
-  $('#regions').innerHTML = list.map(r => '<button class="rg' + (region === r.code ? ' sel' : '')
+  // 重绘会重置滚动条：记住位置，画完恢复，否则长列表里点选后视觉上"没反应"
+  const box = $('#regions');
+  const st = box.scrollTop;
+  box.innerHTML = list.map(r => '<button class="rg' + (region === r.code ? ' sel' : '')
       + '" data-rg="' + esc(r.code) + '"><b>' + esc(r.name || r.code) + '</b>'
       + '<em>' + r.available + ' 个空闲 · ' + r.best_speed_mbps.toFixed(0) + ' Mbps</em></button>')
     .join('');
+  box.scrollTop = st;
   updateAvail();
 }
 
