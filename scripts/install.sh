@@ -271,18 +271,21 @@ svc_is_active && echo "      服务运行中（${INIT_SYS}）" || {
 }
 
 # 口令、访问路径、端口都在 config.json 里（配置统一后不再写散文件）。
-# 等 home-broadband 首次启动写出来。
-for _ in $(seq 1 15); do
-  [[ -s "${WORK_DIR}/config.json" ]] && break
+# 等 home-broadband 首次启动写出来：光文件存在不够，
+# 口令和路径是程序启动后才生成的，得等到它们非空。
+BP=""; PW=""
+for _ in $(seq 1 30); do
+  [[ -s "${WORK_DIR}/config.json" ]] || { sleep 1; continue; }
+  BP=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('basepath',''))" 2>/dev/null)
+  PW=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('password',''))" 2>/dev/null)
+  [[ -n "$BP" && -n "$PW" ]] && break
   sleep 1
 done
 
 IP=$(curl -s --max-time 8 http://api.ipify.org || echo "<本机IP>")
 # 用 python3 从 config.json 里取，免得再被散文件改名搞乱
-BP=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('basepath',''))" 2>/dev/null)
 WEB_PORT=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('web',{}).get('port',''))" 2>/dev/null)
 [[ -n "$WEB_PORT" ]] || WEB_PORT=8899
-PW=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('password',''))" 2>/dev/null)
 echo
 echo "  管理界面  http://${IP}:${WEB_PORT}${BP}/"
 echo "  访问口令  ${PW:-见 ${WORK_DIR}/config.json 的 password 字段}"
