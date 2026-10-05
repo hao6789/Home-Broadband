@@ -11,7 +11,8 @@ import (
 	"syscall"
 
 	"home-broadband/internal/config"
-	"home-broadband/internal/core"
+	"home-broadband/internal/panel"
+	"home-broadband/internal/tunnel"
 	"home-broadband/internal/web"
 )
 
@@ -56,40 +57,41 @@ func main() {
 
 	// 先记下母机的网络命名空间，后面所有子进程都从这里起。
 	// 必须赶在建任何隧道之前，那之后线程就可能被带进隧道里了
-	if err := core.InitMainNetns(); err != nil {
+	if err := tunnel.InitMainNetns(); err != nil {
 		log.Fatal(err)
 	}
 
 	// 同一个工作目录只许跑一个实例：两份会共用 state.json 互相覆盖，隧道记录直接丢
-	unlock, err := core.LockWorkDir(*workDir)
+	unlock, err := tunnel.LockWorkDir(*workDir)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer unlock()
 
 	// 定下这台机器上属于本实例的 netns 名与网段。默认目录沿用老名字，
-	// 换了目录就自动隔离，免得两个实例互相拆隧道（见 internal/core/instance.go）
-	if err := core.InitInstance(*workDir); err != nil {
+	// 换了目录就自动隔离，免得两个实例互相拆隧道（见 internal/tunnel/instance.go）
+	if err := tunnel.InitInstance(*workDir); err != nil {
 		log.Fatalf("初始化实例标识失败: %v", err)
 	}
-	if core.InstanceTag() != "" {
-		log.Printf("非默认工作目录，本实例用 netns hb%s* 与网段 10.%d.x", core.InstanceTag(), core.InstanceBase())
+	if tunnel.InstanceTag() != "" {
+		log.Printf("非默认工作目录，本实例用 netns hb%s* 与网段 10.%d.x", tunnel.InstanceTag(), tunnel.InstanceBase())
 	}
 
-	core.SetPublicIPOverride(*publicIP)
-	go core.HostPublicIP() // 预热探测，别让首个请求阻塞
-	if err := core.PrepareHost(); err != nil {
+	tunnel.SetPublicIPOverride(*publicIP)
+	go tunnel.HostPublicIP() // 预热探测，别让首个请求阻塞
+	if err := tunnel.PrepareHost(); err != nil {
 		log.Fatal(err)
 	}
 
-	core.ConfigurePanel(*workDir, *panelMode)
-	if p, err := core.OpenPanel(); err != nil {
+	panel.ConfigurePanel(*workDir, *panelMode)
+
+	mgr := tunnel.NewManager(*maxSlots, *workDir)
+	if p, err := panel.OpenPanel(); err != nil {
 		log.Printf("节点链接后端暂不可用（可在 Web 界面查看原因）: %v", err)
 	} else {
 		log.Printf("节点链接后端: %s", p.Describe())
+		mgr.SetBackend(p)
 	}
-
-	mgr := core.NewManager(*maxSlots, *workDir)
 	log.Printf("正在拉取节点列表...")
 	if n, err := mgr.RefreshNodes(); err != nil {
 		log.Printf("拉取失败（可在 Web 界面重试）: %v", err)
@@ -114,7 +116,7 @@ func main() {
 		<-stop
 		log.Println("正在清理所有隧道...")
 		mgr.Shutdown()
-		core.ClosePanel()
+		panel.ClosePanel()
 		unlock() // os.Exit 会绕过 defer，这里手动放锁
 		os.Exit(0)
 	}()
@@ -153,7 +155,7 @@ func main() {
 	web.RegisterRoutes(mux, mgr, *workDir, auth, srv)
 
 	log.Printf("管理界面: http://<本机IP>%s%s/", webCfg.ListenAddrString(), config.CurrentBasePath())
-	log.Printf("SOCKS5 端口在 %d-%d 之间随机分配", core.RandPortMin, core.RandPortMax)
+	log.Printf("SOCKS5 端口在 %d-%d 之间随机分配", tunnel.RandPortMin, tunnel.RandPortMax)
 	if err := srv.Serve(); err != nil {
 		log.Fatal(err)
 	}

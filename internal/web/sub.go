@@ -9,7 +9,8 @@ import (
 	"strings"
 
 	"home-broadband/internal/config"
-	"home-broadband/internal/core"
+	"home-broadband/internal/panel"
+	"home-broadband/internal/tunnel"
 )
 
 // 订阅：把 home-broadband 管着的节点链接聚成一条地址，客户端订阅一次就全有了。
@@ -60,7 +61,7 @@ func subFullURL(r *http.Request, tok string) string {
 	}
 	host := r.Host
 	if host == "" {
-		if ip := core.HostPublicIP(); ip != "" {
+		if ip := tunnel.HostPublicIP(); ip != "" {
 			host = ip + ":" + fmt.Sprint(config.GetWebSettings().Port)
 		}
 	}
@@ -103,8 +104,8 @@ func apiSubReset(w http.ResponseWriter, r *http.Request) {
 //
 // boundOnly=true 只要绑在出口上的入站。这是默认行为：订阅的意义是
 // "一条地址拿到我所有家宽出口"，把走直连的入站混进去会让人以为那些也是家宽。
-func subLinks(m *core.Manager, host string, boundOnly bool) ([]string, error) {
-	p, err := core.OpenPanel()
+func subLinks(m *tunnel.Manager, host string, boundOnly bool) ([]string, error) {
+	p, err := panel.OpenPanel()
 	if err != nil {
 		return nil, err
 	}
@@ -143,7 +144,7 @@ func subLinks(m *core.Manager, host string, boundOnly bool) ([]string, error) {
 //	target 输出格式：base64（默认，通用）或 links（明文，排查用）
 //	host   节点链接里的连接地址，默认用母机公网 IP
 //	bound  0 表示把没绑出口的入站也放进来
-func handleSub(m *core.Manager) http.HandlerFunc {
+func handleSub(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		want, err := subToken()
@@ -177,7 +178,7 @@ func handleSub(m *core.Manager) http.HandlerFunc {
 		links, err := subLinks(m, host, q.Get("bound") != "0")
 		if err != nil {
 			// 节点后端不给链接
-			http.Error(w, "生成订阅失败: "+core.FirstLine(err.Error()), http.StatusBadGateway)
+			http.Error(w, "生成订阅失败: "+tunnel.FirstLine(err.Error()), http.StatusBadGateway)
 			return
 		}
 		if len(links) == 0 {

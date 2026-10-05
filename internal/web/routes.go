@@ -3,11 +3,11 @@ package web
 import (
 	"net/http"
 
-	"home-broadband/internal/core"
+	"home-broadband/internal/tunnel"
 )
 
 // RegisterRoutes 把全部 HTTP 路由挂到 mux 上。原来这份路由表在 main.go 里。
-func RegisterRoutes(mux *http.ServeMux, mgr *core.Manager, workDir string, auth *Auth, srv *webServer) {
+func RegisterRoutes(mux *http.ServeMux, mgr *tunnel.Manager, workDir string, auth *Auth, srv *webServer) {
 	mux.HandleFunc("/", handleIndex)
 	mux.HandleFunc("/api/nodes", apiNodes(mgr))
 	mux.HandleFunc("/api/tunnels", apiTunnels(mgr))
@@ -33,7 +33,7 @@ func RegisterRoutes(mux *http.ServeMux, mgr *core.Manager, workDir string, auth 
 	mux.HandleFunc("/api/panel/client/add", apiClientAdd(mgr))
 	mux.HandleFunc("/api/panel/client/del", apiClientDelete(mgr))
 	mux.HandleFunc("/api/panel/client/reset", apiClientReset(mgr))
-	mux.HandleFunc("/api/panel/mode", apiPanelMode(workDir))
+	mux.HandleFunc("/api/panel/mode", apiPanelMode(mgr, workDir))
 	mux.HandleFunc("/api/sub", apiSub)
 	mux.HandleFunc("/api/sub/reset", apiSubReset)
 	// 订阅本体走免登录（见 auth.go 的放行），口令在 handleSub 里验

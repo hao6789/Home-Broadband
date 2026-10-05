@@ -8,7 +8,8 @@ import (
 	"time"
 
 	"home-broadband/internal/config"
-	"home-broadband/internal/core"
+	"home-broadband/internal/panel"
+	"home-broadband/internal/tunnel"
 	"home-broadband/internal/vpngate"
 )
 
@@ -18,7 +19,7 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func apiNodes(m *core.Manager) http.HandlerFunc {
+func apiNodes(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		nodes, fetched := m.Nodes()
 		total := len(nodes)
@@ -47,13 +48,13 @@ func apiNodes(m *core.Manager) http.HandlerFunc {
 	}
 }
 
-func apiTunnels(m *core.Manager) http.HandlerFunc {
+func apiTunnels(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, m.Tunnels())
 	}
 }
 
-func apiStart(m *core.Manager) http.HandlerFunc {
+func apiStart(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		host := r.URL.Query().Get("host")
 		if host == "" {
@@ -76,7 +77,7 @@ func apiStart(m *core.Manager) http.HandlerFunc {
 	}
 }
 
-func apiStop(m *core.Manager) http.HandlerFunc {
+func apiStop(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slot, err := strconv.Atoi(r.URL.Query().Get("slot"))
 		if err != nil {
@@ -91,7 +92,7 @@ func apiStop(m *core.Manager) http.HandlerFunc {
 	}
 }
 
-func apiRefresh(m *core.Manager) http.HandlerFunc {
+func apiRefresh(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		n, err := m.RefreshNodes()
 		if err != nil {
@@ -103,7 +104,7 @@ func apiRefresh(m *core.Manager) http.HandlerFunc {
 }
 
 // apiSwap 就地把一个出口换到别的节点，端口不变。
-func apiSwap(m *core.Manager) http.HandlerFunc {
+func apiSwap(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		slot, err := strconv.Atoi(r.URL.Query().Get("slot"))
 		if err != nil {
@@ -119,14 +120,14 @@ func apiSwap(m *core.Manager) http.HandlerFunc {
 }
 
 // apiRegions 给新建向导用：各地区还剩多少空闲节点。
-func apiRegions(m *core.Manager) http.HandlerFunc {
+func apiRegions(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, m.Regions())
 	}
 }
 
 // apiCred 改一个出口的 SOCKS5 用户名口令。两个参数都留空表示随机重置。
-func apiCred(m *core.Manager) http.HandlerFunc {
+func apiCred(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		slot, err := strconv.Atoi(q.Get("slot"))
@@ -134,7 +135,7 @@ func apiCred(m *core.Manager) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "slot 参数无效"})
 			return
 		}
-		cred, err := m.SetCred(slot, core.SocksCred{
+		cred, err := m.SetCred(slot, tunnel.SocksCred{
 			User: strings.TrimSpace(q.Get("user")),
 			Pass: strings.TrimSpace(q.Get("pass")),
 		})
@@ -291,14 +292,14 @@ func apiRestart(w http.ResponseWriter, r *http.Request) {
 }
 
 // apiExits 返回主界面需要的一切：出口以及挂在它上面的入站。
-func apiExits(m *core.Manager) http.HandlerFunc {
+func apiExits(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, m.ExitsOf())
 	}
 }
 
 // apiProvision 接收"开 N 个某地区的出口"这个意图，返回作业 id 供轮询。
-func apiProvision(m *core.Manager) http.HandlerFunc {
+func apiProvision(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		count, err := strconv.Atoi(q.Get("count"))
@@ -313,7 +314,7 @@ func apiProvision(m *core.Manager) http.HandlerFunc {
 				return
 			}
 		}
-		job, err := m.Provision(core.ProvisionRequest{
+		job, err := m.Provision(tunnel.ProvisionRequest{
 			Region: q.Get("region"), Count: count, TemplateID: tpl,
 			EveryRegion: q.Get("every") == "1",
 		})
@@ -325,13 +326,13 @@ func apiProvision(m *core.Manager) http.HandlerFunc {
 	}
 }
 
-func apiJobs(m *core.Manager) http.HandlerFunc {
+func apiJobs(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, m.Jobs.Views())
 	}
 }
 
-func apiJobDismiss(m *core.Manager) http.HandlerFunc {
+func apiJobDismiss(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		m.Jobs.Dismiss(r.URL.Query().Get("id"))
 		writeJSON(w, http.StatusOK, map[string]string{"ok": "已关闭"})
@@ -340,7 +341,7 @@ func apiJobDismiss(m *core.Manager) http.HandlerFunc {
 
 // apiXUIStatus 报告当前的节点链接后端：接管的 3x-ui，或 home-broadband 自己跑的 Xray。
 func apiXUIStatus(w http.ResponseWriter, r *http.Request) {
-	p, err := core.OpenPanel()
+	p, err := panel.OpenPanel()
 	if err != nil {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"available": false,
@@ -354,7 +355,7 @@ func apiXUIStatus(w http.ResponseWriter, r *http.Request) {
 		"describe":   p.Describe(),
 		"can_create": true,
 	}
-	if x, ok := p.(*core.XUI); ok {
+	if x, ok := p.(*panel.XUI); ok {
 		resp["port"] = x.Port
 		resp["base_path"] = x.BasePath
 		resp["scheme"] = x.Scheme
@@ -365,7 +366,7 @@ func apiXUIStatus(w http.ResponseWriter, r *http.Request) {
 
 // apiPanelMode 读取/切换节点链接后端。
 // GET 返回当前模式与本机可选模式；POST {"mode":"..."} 运行时切换，空 mode = 恢复自动探测。
-func apiPanelMode(workDir string) http.HandlerFunc {
+func apiPanelMode(m *tunnel.Manager, workDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
 			var in struct {
@@ -375,24 +376,25 @@ func apiPanelMode(workDir string) http.HandlerFunc {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求格式错误"})
 				return
 			}
-			p, err := core.SwitchPanelMode(in.Mode)
+			p, err := panel.SwitchPanelMode(in.Mode)
 			if err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 				return
 			}
-			core.InvalidateInbounds()
+			m.SetBackend(p)
+			tunnel.InvalidateInbounds()
 			writeJSON(w, http.StatusOK, map[string]any{
-				"mode":     core.CurrentPanelMode(),
+				"mode":     panel.CurrentPanelMode(),
 				"kind":     p.Kind(),
 				"describe": p.Describe(),
 			})
 			return
 		}
 		resp := map[string]any{
-			"mode":  core.CurrentPanelMode(),
-			"modes": core.AvailablePanelModes(workDir),
+			"mode":  panel.CurrentPanelMode(),
+			"modes": panel.AvailablePanelModes(workDir),
 		}
-		if p, err := core.OpenPanel(); err == nil {
+		if p, err := panel.OpenPanel(); err == nil {
 			resp["kind"] = p.Kind()
 			resp["describe"] = p.Describe()
 		}
@@ -401,9 +403,9 @@ func apiPanelMode(workDir string) http.HandlerFunc {
 }
 
 // apiXUIInbounds 列出面板里已有的入站及其绑定状态。
-func apiXUIInbounds(m *core.Manager) http.HandlerFunc {
+func apiXUIInbounds(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		list, err := core.CachedInbounds(liveHosts(m))
+		list, err := tunnel.CachedInbounds(m.Backend(), liveHosts(m))
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
@@ -413,18 +415,18 @@ func apiXUIInbounds(m *core.Manager) http.HandlerFunc {
 }
 
 // liveHosts 返回当前有连通隧道的节点标识集合。
-func liveHosts(m *core.Manager) map[string]bool {
+func liveHosts(m *tunnel.Manager) map[string]bool {
 	live := map[string]bool{}
 	for _, t := range m.Tunnels() {
 		if t.Status == "up" {
-			live[core.SanitizeTag(t.Node.HostName)] = true
+			live[tunnel.SanitizeTag(t.Node.HostName)] = true
 		}
 	}
 	return live
 }
 
 // apiXUIBind 把某个入站绑定到某条隧道，slot=0 表示解绑。
-func apiXUIBind(m *core.Manager) http.HandlerFunc {
+func apiXUIBind(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tag := r.URL.Query().Get("tag")
 		if tag == "" {
@@ -432,7 +434,7 @@ func apiXUIBind(m *core.Manager) http.HandlerFunc {
 			return
 		}
 		host := r.URL.Query().Get("host")
-		x, err := core.OpenPanel()
+		x, err := panel.OpenPanel()
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
@@ -441,13 +443,13 @@ func apiXUIBind(m *core.Manager) http.HandlerFunc {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
 		}
-		core.InvalidateInbounds()
+		tunnel.InvalidateInbounds()
 		writeJSON(w, http.StatusOK, map[string]string{"ok": "已更新"})
 	}
 }
 
 // apiXUIClone 以某个入站为模板，为所有已连通的隧道各复制一个入站并绑好出口。
-func apiXUIClone(m *core.Manager) http.HandlerFunc {
+func apiXUIClone(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(r.URL.Query().Get("id"))
 		if err != nil {
@@ -476,13 +478,13 @@ func apiXUIClone(m *core.Manager) http.HandlerFunc {
 			return
 		}
 
-		x, err := core.OpenPanel()
+		x, err := panel.OpenPanel()
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
 		}
 		ports, err := x.CloneToTunnels(id, hosts, tunnels)
-		core.InvalidateInbounds()
+		tunnel.InvalidateInbounds()
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error(), "created": ports})
 			return
@@ -498,7 +500,7 @@ func apiXUIDetail(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "id 参数无效"})
 		return
 	}
-	x, err := core.OpenPanel()
+	x, err := panel.OpenPanel()
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 		return
@@ -518,7 +520,7 @@ func apiXUIDetail(w http.ResponseWriter, r *http.Request) {
 // publicHost 决定分享链接里的连接地址。母机公网 IPv4 才是客户端真正能连上
 // 的地址，所以优先用它；探测不到（比如纯内网）再退回访问 home-broadband 时用的主机名。
 func publicHost(r *http.Request) string {
-	if ip := core.HostPublicIP(); ip != "" {
+	if ip := tunnel.HostPublicIP(); ip != "" {
 		return ip
 	}
 	host := r.Host
@@ -533,7 +535,7 @@ func publicHost(r *http.Request) string {
 
 // apiXUILinks 批量导出多个入站的分享链接。
 func apiXUILinks(w http.ResponseWriter, r *http.Request) {
-	x, err := core.OpenPanel()
+	x, err := panel.OpenPanel()
 	if err != nil {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 		return
@@ -574,7 +576,7 @@ func apiXUILinks(w http.ResponseWriter, r *http.Request) {
 }
 
 // apiXUIDelete 删除入站。停掉出口后它的入站会留下来，用户需要一个清理入口。
-func apiXUIDelete(m *core.Manager) http.HandlerFunc {
+func apiXUIDelete(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var ids []int
 		for _, part := range strings.Split(r.URL.Query().Get("ids"), ",") {
@@ -586,13 +588,13 @@ func apiXUIDelete(m *core.Manager) http.HandlerFunc {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "没有指定要删除的入站"})
 			return
 		}
-		x, err := core.OpenPanel()
+		x, err := panel.OpenPanel()
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
 		}
 		err = x.DeleteInbounds(ids, m.Tunnels())
-		core.InvalidateInbounds()
+		tunnel.InvalidateInbounds()
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
@@ -604,9 +606,9 @@ func apiXUIDelete(m *core.Manager) http.HandlerFunc {
 // apiInboundCreate 新建一个入站。两种后端都支持：自建模式写自己的库，
 // 接管 3x-ui 时走面板的 inbounds/add API。
 // apiInboundUpdate 改入站的端口、备注与启停。两种后端都支持。
-func apiInboundUpdate(m *core.Manager) http.HandlerFunc {
+func apiInboundUpdate(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		p, err := core.OpenPanel()
+		p, err := panel.OpenPanel()
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
@@ -619,7 +621,7 @@ func apiInboundUpdate(m *core.Manager) http.HandlerFunc {
 		}
 
 		// 只有真正传了的参数才改，没传的保持原样
-		var patch core.InboundPatch
+		var patch panel.InboundPatch
 		if v := q.Get("port"); v != "" {
 			port, err := strconv.Atoi(v)
 			if err != nil {
@@ -638,7 +640,7 @@ func apiInboundUpdate(m *core.Manager) http.HandlerFunc {
 		}
 
 		err = p.UpdateInbound(id, patch, m.Tunnels())
-		core.InvalidateInbounds()
+		tunnel.InvalidateInbounds()
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
@@ -648,10 +650,10 @@ func apiInboundUpdate(m *core.Manager) http.HandlerFunc {
 }
 
 // clientAction 把三个客户端操作的公共部分收拢：解析 id/email 再调后端。
-func clientAction(m *core.Manager, what string,
-	do func(p core.Panel, id int, email string, tunnels []*core.Tunnel) error) http.HandlerFunc {
+func clientAction(m *tunnel.Manager, what string,
+	do func(p panel.Panel, id int, email string, tunnels []*tunnel.Tunnel) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		p, err := core.OpenPanel()
+		p, err := panel.OpenPanel()
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
@@ -662,7 +664,7 @@ func clientAction(m *core.Manager, what string,
 			return
 		}
 		err = do(p, id, r.URL.Query().Get("email"), m.Tunnels())
-		core.InvalidateInbounds()
+		tunnel.InvalidateInbounds()
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
@@ -671,27 +673,27 @@ func clientAction(m *core.Manager, what string,
 	}
 }
 
-func apiClientAdd(m *core.Manager) http.HandlerFunc {
-	return clientAction(m, "已添加", func(p core.Panel, id int, email string, t []*core.Tunnel) error {
+func apiClientAdd(m *tunnel.Manager) http.HandlerFunc {
+	return clientAction(m, "已添加", func(p panel.Panel, id int, email string, t []*tunnel.Tunnel) error {
 		return p.AddClient(id, email, t)
 	})
 }
 
-func apiClientDelete(m *core.Manager) http.HandlerFunc {
-	return clientAction(m, "已删除", func(p core.Panel, id int, email string, t []*core.Tunnel) error {
+func apiClientDelete(m *tunnel.Manager) http.HandlerFunc {
+	return clientAction(m, "已删除", func(p panel.Panel, id int, email string, t []*tunnel.Tunnel) error {
 		return p.DeleteClient(id, email, t)
 	})
 }
 
-func apiClientReset(m *core.Manager) http.HandlerFunc {
-	return clientAction(m, "已重置", func(p core.Panel, id int, email string, t []*core.Tunnel) error {
+func apiClientReset(m *tunnel.Manager) http.HandlerFunc {
+	return clientAction(m, "已重置", func(p panel.Panel, id int, email string, t []*tunnel.Tunnel) error {
 		return p.ResetClient(id, email, t)
 	})
 }
 
-func apiInboundCreate(m *core.Manager) http.HandlerFunc {
+func apiInboundCreate(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		p, err := core.OpenPanel()
+		p, err := panel.OpenPanel()
 		if err != nil {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
@@ -699,7 +701,7 @@ func apiInboundCreate(m *core.Manager) http.HandlerFunc {
 
 		q := r.URL.Query()
 		port, _ := strconv.Atoi(q.Get("port"))
-		ib, err := p.CreateInbound(core.NewInboundSpec{
+		ib, err := p.CreateInbound(panel.NewInboundSpec{
 			Protocol: q.Get("protocol"),
 			Network:  q.Get("network"),
 			Port:     port,
@@ -718,7 +720,7 @@ func apiInboundCreate(m *core.Manager) http.HandlerFunc {
 			ShortID:     q.Get("sid"),
 			Fingerprint: q.Get("fp"),
 		}, m.Tunnels())
-		core.InvalidateInbounds()
+		tunnel.InvalidateInbounds()
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 			return
