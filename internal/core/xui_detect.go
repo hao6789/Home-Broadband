@@ -8,11 +8,11 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
+
+	"home-broadband/internal/config"
 )
 
 // 第三个返回值表示这段输出里到底有没有提到 SSL，没提到时调用方才去看证书。
@@ -147,17 +147,21 @@ func (x *XUI) tokenValid() bool {
 
 // readSavedToken 读回上次落盘的 token，没有就返回空串。
 func readSavedToken(workDir string) string {
-	blob, err := os.ReadFile(filepath.Join(workDir, xuiTokenFile))
+	s, err := config.Open(workDir)
 	if err != nil {
 		return ""
 	}
-	return strings.TrimSpace(string(blob))
+	return s.XUIToken()
 }
 
 // saveToken 把 token 落盘（0600），失败只记日志不阻断。
 func saveToken(workDir, token string) {
-	path := filepath.Join(workDir, xuiTokenFile)
-	if err := os.WriteFile(path, []byte(token+"\n"), 0600); err != nil {
+	s, err := config.Open(workDir)
+	if err != nil {
+		log.Printf("保存 API token 失败（不影响本次运行）: %v", err)
+		return
+	}
+	if err := s.SetXUIToken(token); err != nil {
 		log.Printf("保存 API token 失败（不影响本次运行）: %v", err)
 	}
 }

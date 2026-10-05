@@ -51,8 +51,8 @@ func TestSetBasePathValidatesAndPersists(t *testing.T) {
 	if bp != "/myPanel_1" || CurrentBasePath() != "/myPanel_1" {
 		t.Fatalf("basePath 未生效: %q / %q", bp, CurrentBasePath())
 	}
-	if _, err := os.ReadFile(dir + "/basepath"); err != nil {
-		t.Fatalf("basepath 未落盘: %v", err)
+	if _, err := os.ReadFile(dir + "/config.json"); err != nil {
+		t.Fatalf("config.json 未落盘: %v", err)
 	}
 	if _, err := SetBasePath("bad/slash"); err == nil {
 		t.Fatal("带非法字符的路径应被拒")

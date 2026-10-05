@@ -5,17 +5,21 @@ import (
 	"time"
 )
 
-func newTestAuth() *Auth {
-	return &Auth{
-		password: "secret",
-		sessions: map[string]time.Time{},
-		fails:    map[string]*loginFails{},
+func newTestAuth(t *testing.T) *Auth {
+	t.Helper()
+	a, _, err := NewAuth(t.TempDir())
+	if err != nil {
+		t.Fatalf("NewAuth: %v", err)
 	}
+	if err := a.SetPassword("secret"); err != nil {
+		t.Fatalf("SetPassword: %v", err)
+	}
+	return a
 }
 
 // 连续失败达到阈值后，该 IP 应被冷却挡下。
 func TestLoginThrottleBlocksAfterMaxFails(t *testing.T) {
-	a := newTestAuth()
+	a := newTestAuth(t)
 	const ip = "203.0.113.7"
 
 	for i := 0; i < loginMaxFails; i++ {
@@ -31,7 +35,7 @@ func TestLoginThrottleBlocksAfterMaxFails(t *testing.T) {
 
 // 登录成功要清零，之前的失败不该累积到下一轮。
 func TestLoginThrottleClearOnSuccess(t *testing.T) {
-	a := newTestAuth()
+	a := newTestAuth(t)
 	const ip = "203.0.113.8"
 
 	for i := 0; i < loginMaxFails-1; i++ {
@@ -50,7 +54,7 @@ func TestLoginThrottleClearOnSuccess(t *testing.T) {
 
 // 不同 IP 的失败互不牵连。
 func TestLoginThrottleIsolatesIPs(t *testing.T) {
-	a := newTestAuth()
+	a := newTestAuth(t)
 	for i := 0; i < loginMaxFails; i++ {
 		a.recordFail("198.51.100.1")
 	}
@@ -61,7 +65,7 @@ func TestLoginThrottleIsolatesIPs(t *testing.T) {
 
 // 冷却到期后应自动解封。
 func TestLoginThrottleUnblocksAfterExpiry(t *testing.T) {
-	a := newTestAuth()
+	a := newTestAuth(t)
 	const ip = "203.0.113.9"
 	for i := 0; i < loginMaxFails; i++ {
 		a.recordFail(ip)

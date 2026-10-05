@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
+
+	"home-broadband/internal/config"
 )
 
 // persistedTunnel 是隧道在磁盘上的形态。
@@ -29,9 +29,7 @@ type persistedState struct {
 	Tunnels []persistedTunnel `json:"tunnels"`
 }
 
-func statePath(dir string) string { return filepath.Join(dir, "state.json") }
-
-// saveState 把当前隧道写入磁盘，供重启后恢复。
+// saveState 把当前隧道写入统一存储，供重启后恢复。
 func (m *Manager) saveState() error {
 	var st persistedState
 	for _, t := range m.Tunnels() {
@@ -57,27 +55,28 @@ func (m *Manager) saveState() error {
 	if err != nil {
 		return err
 	}
-	tmp := statePath(m.workDir) + ".tmp"
-	if err := os.WriteFile(tmp, blob, 0600); err != nil {
+	s, err := config.Open(m.workDir)
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, statePath(m.workDir))
+	return s.SetTunnels(blob)
 }
 
 // RestoreState 读回上次的隧道并逐条拉起。
 // 节点配置一并存了盘，所以即使 VPN Gate 列表里该节点已消失也能重建。
 func (m *Manager) RestoreState() (int, error) {
-	blob, err := os.ReadFile(statePath(m.workDir))
-	if os.IsNotExist(err) {
-		return 0, nil
-	}
+	s, err := config.Open(m.workDir)
 	if err != nil {
 		return 0, err
+	}
+	blob := s.Tunnels()
+	if len(blob) == 0 {
+		return 0, nil
 	}
 
 	var st persistedState
 	if err := json.Unmarshal(blob, &st); err != nil {
-		return 0, fmt.Errorf("解析状态文件失败: %w", err)
+		return 0, fmt.Errorf("解析状态失败: %w", err)
 	}
 
 	// 从当前节点列表补回地区、延迟等元数据；节点已下线时退回存盘的最小信息

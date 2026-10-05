@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"home-broadband/internal/config"
 )
 
 // 换节点未收尾的标记要跟着状态一起落盘。
@@ -26,9 +28,14 @@ func TestSaveStateKeepsPrevHost(t *testing.T) {
 	if err := m.saveState(); err != nil {
 		t.Fatal(err)
 	}
-	blob, err := os.ReadFile(filepath.Join(dir, "state.json"))
+	// 状态现在收进统一存储的 tunnels 域，不再是单独的 state.json
+	s, err := config.Open(dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+	blob := s.Tunnels()
+	if len(blob) == 0 {
+		t.Fatal("隧道状态没存下来")
 	}
 	var st persistedState
 	if err := json.Unmarshal(blob, &st); err != nil {
@@ -60,7 +67,11 @@ func TestPrevHostClearedAfterSettle(t *testing.T) {
 	if err := m.saveState(); err != nil {
 		t.Fatal(err)
 	}
-	blob, _ := os.ReadFile(filepath.Join(dir, "state.json"))
+	s, err := config.Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	blob := s.Tunnels()
 	var st persistedState
 	if err := json.Unmarshal(blob, &st); err != nil {
 		t.Fatal(err)

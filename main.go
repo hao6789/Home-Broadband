@@ -48,6 +48,12 @@ func main() {
 		log.Fatalf("创建工作目录失败: %v", err)
 	}
 
+	// 打开统一配置存储（老版本散落的小文件会在这里一次性迁入 config.json）。
+	// 之后所有无 dir 参数的配置访问都走这份全局存储。
+	if _, err := config.Init(*workDir); err != nil {
+		log.Fatalf("打开配置存储失败: %v", err)
+	}
+
 	// 先记下母机的网络命名空间，后面所有子进程都从这里起。
 	// 必须赶在建任何隧道之前，那之后线程就可能被带进隧道里了
 	if err := core.InitMainNetns(); err != nil {

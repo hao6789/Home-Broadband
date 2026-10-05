@@ -49,7 +49,8 @@ var (
 	cachedTokenMu sync.Mutex
 )
 
-// xuiTokenFile 是 token 落盘的文件名，放在 home-broadband 工作目录下。
+// xuiTokenFile 是老版本 token 落盘的文件名。统一存储迁移时会把它收进
+// config.json 并改名 .bak；新代码不再直接读写它。
 const xuiTokenFile = "xui-token"
 
 var (

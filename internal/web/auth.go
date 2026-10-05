@@ -5,28 +5,22 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
+
+	"home-broadband/internal/config"
 )
 
 // Auth 给管理界面加一层登录。
-// 口令存在工作目录下，首次启动自动生成，避免公网上裸奔。
+// 口令与会话存在统一存储里，首次启动自动生成口令，避免公网上裸奔。
 type Auth struct {
-	dir      string
-	password string
-	mu       sync.RWMutex
-	sessions map[string]time.Time
-	// sessionsPath 是会话落盘文件：重启面板不断登录。
-	sessionsPath string
-	// 按来源 IP 记录登录失败，挡低速凭据喷洒
+	store *config.Store
+	mu    sync.RWMutex
+	// fails 按来源 IP 记录登录失败，挡低速凭据喷洒（纯内存，不落盘）
 	fails map[string]*loginFails
 }
 
@@ -49,66 +43,24 @@ const (
 
 // NewAuth 载入或生成访问口令。返回口令是否为本次新建。
 func NewAuth(dir string) (*Auth, bool, error) {
-	path := filepath.Join(dir, "password")
-	created := false
-
-	blob, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		pw, gerr := randomToken(9)
-		if gerr != nil {
-			return nil, false, gerr
-		}
-		if werr := os.WriteFile(path, []byte(pw+"\n"), 0600); werr != nil {
-			return nil, false, fmt.Errorf("写口令文件失败: %w", werr)
-		}
-		blob = []byte(pw)
-		created = true
-	} else if err != nil {
+	s, err := config.Open(dir)
+	if err != nil {
 		return nil, false, err
 	}
-
-	a := &Auth{
-		dir:          dir,
-		password:     strings.TrimSpace(string(blob)),
-		sessions:     map[string]time.Time{},
-		sessionsPath: filepath.Join(dir, "sessions.json"),
-		fails:        map[string]*loginFails{},
-	}
-	a.loadSessions()
-	return a, created, nil
-}
-
-// loadSessions 从盘上读回未过期的会话，文件坏了就从空开始，不影响启动。
-func (a *Auth) loadSessions() {
-	blob, err := os.ReadFile(a.sessionsPath)
-	if err != nil {
-		return
-	}
-	var saved map[string]time.Time
-	if err := json.Unmarshal(blob, &saved); err != nil {
-		log.Printf("会话文件损坏，从空会话启动: %v", err)
-		return
-	}
-	now := time.Now()
-	for tok, exp := range saved {
-		if now.Before(exp) {
-			a.sessions[tok] = exp
+	pw := s.Password()
+	created := false
+	if pw == "" {
+		pw, err = randomToken(9)
+		if err != nil {
+			return nil, false, err
 		}
+		if err := s.SetPassword(pw); err != nil {
+			return nil, false, fmt.Errorf("写口令失败: %w", err)
+		}
+		created = true
 	}
-}
 
-// saveSessionsLocked 把会话落盘。调用时必须已持有 a.mu 写锁。
-// 原子写（临时文件 + 改名），0600 权限：这里是登录凭证。
-func (a *Auth) saveSessionsLocked() {
-	blob, err := json.Marshal(a.sessions)
-	if err != nil {
-		return
-	}
-	tmp := a.sessionsPath + ".tmp"
-	if err := os.WriteFile(tmp, blob, 0600); err != nil {
-		return
-	}
-	_ = os.Rename(tmp, a.sessionsPath)
+	return &Auth{store: s, fails: map[string]*loginFails{}}, created, nil
 }
 
 func randomToken(n int) (string, error) {
@@ -121,9 +73,7 @@ func randomToken(n int) (string, error) {
 
 // check 比对口令，用恒定时间比较避免时序泄漏。
 func (a *Auth) check(pw string) bool {
-	a.mu.RLock()
-	cur := a.password
-	a.mu.RUnlock()
+	cur := a.store.Password()
 	want := sha256.Sum256([]byte(cur))
 	got := sha256.Sum256([]byte(pw))
 	return subtle.ConstantTimeCompare(want[:], got[:]) == 1
@@ -139,18 +89,7 @@ func (a *Auth) SetPassword(pw string) error {
 	if len(pw) < 4 {
 		return fmt.Errorf("口令至少 4 位")
 	}
-	path := filepath.Join(a.dir, "password")
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, []byte(pw+"\n"), 0600); err != nil {
-		return fmt.Errorf("写口令文件失败: %w", err)
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		return fmt.Errorf("保存口令失败: %w", err)
-	}
-	a.mu.Lock()
-	a.password = pw
-	a.mu.Unlock()
-	return nil
+	return a.store.SetPassword(pw)
 }
 
 // issue 发一个会话 token。
@@ -159,24 +98,14 @@ func (a *Auth) issue() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	a.mu.Lock()
-	a.sessions[tok] = time.Now().Add(sessionTTL)
-	// 顺手清掉过期会话
-	for k, exp := range a.sessions {
-		if time.Now().After(exp) {
-			delete(a.sessions, k)
-		}
+	if err := a.store.AddSession(tok, time.Now().Add(sessionTTL)); err != nil {
+		return "", err
 	}
-	a.saveSessionsLocked()
-	a.mu.Unlock()
 	return tok, nil
 }
 
 func (a *Auth) valid(tok string) bool {
-	a.mu.RLock()
-	exp, ok := a.sessions[tok]
-	a.mu.RUnlock()
-	return ok && time.Now().Before(exp)
+	return a.store.ValidSession(tok)
 }
 
 const sessionCookie = "home-broadband_session"

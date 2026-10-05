@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
+
+	"home-broadband/internal/config"
 )
 
 // Panel 是 home-broadband 管理节点链接的后端。
@@ -91,19 +92,15 @@ var panelState struct {
 	forced  string
 }
 
-// panelModeFile 存界面里选过的后端。命令行 -panel 优先级更高。
-func panelModeFile(dir string) string { return filepath.Join(dir, "panel_mode") }
-
 // ConfigurePanel 记录自建模式需要的工作目录与用户指定的模式。
-// mode 为空表示读盘上界面选过的模式，都没有才自动探测。
+// mode 为空表示读统一存储里界面选过的模式，都没有才自动探测。
 func ConfigurePanel(workDir, mode string) {
 	panelState.mu.Lock()
 	defer panelState.mu.Unlock()
 	panelState.workDir = workDir
 	if mode == "" {
-		blob, err := os.ReadFile(panelModeFile(workDir))
-		if err == nil {
-			mode = strings.TrimSpace(string(blob))
+		if s, err := config.Open(workDir); err == nil {
+			mode = strings.TrimSpace(s.PanelMode())
 		}
 	}
 	// 未知模式一律视为未设置，走自动探测
@@ -114,19 +111,16 @@ func ConfigurePanel(workDir, mode string) {
 	panelState.current = nil
 }
 
-// savePanelMode 把界面选的后端记到工作目录，重启后仍然生效。空值等于删档回到自动探测。
+// savePanelMode 把界面选的后端记到统一存储，重启后仍然生效。空值等于删档回到自动探测。
 func savePanelMode(dir, mode string) error {
 	if dir == "" {
 		return nil
 	}
-	path := panelModeFile(dir)
-	if mode == "" {
-		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-			return err
-		}
-		return nil
+	s, err := config.Open(dir)
+	if err != nil {
+		return err
 	}
-	return os.WriteFile(path, []byte(mode), 0600)
+	return s.SetPanelMode(mode)
 }
 
 // OpenPanel 返回当前可用的后端。
