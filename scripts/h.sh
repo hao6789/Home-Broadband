@@ -153,7 +153,7 @@ show_info() {
   fi
   echo -e "  自启  ${autostart}    隧道  ${n} 条"
   echo
-  echo -e "  ${B}管理地址  http://${ip}:${port}/${bp}/${N}"
+  echo -e "  ${B}管理地址  http://${ip}:${port}${bp}/${N}"
   echo -e "  ${B}访问口令  ${pw}${N}"
 }
 
@@ -165,9 +165,9 @@ list_tunnels() {
   ck=$(mktemp)
 
   curl -s --max-time 10 -c "$ck" -X POST -d "password=${pw}" \
-    "http://127.0.0.1:${port}/${bp}/login" -o /dev/null
+    "http://127.0.0.1:${port}${bp}/login" -o /dev/null
   echo
-  curl -s --max-time 10 -b "$ck" "http://127.0.0.1:${port}/${bp}/api/tunnels" \
+  curl -s --max-time 10 -b "$ck" "http://127.0.0.1:${port}${bp}/api/tunnels" \
     > "$ck.json" 2>/dev/null
   rm -f "$ck"
 
@@ -239,13 +239,14 @@ reset_basepath() {
   read -rp "  新访问路径 (留空则随机生成): " bp
   if [[ -z $bp ]]; then
     bp=$(head -c 8 /dev/urandom | od -An -tx1 | tr -d ' \n' | head -c 12)
-    cfg_set basepath "$bp"
   else
     bp=${bp#/}; bp=${bp%/}
-    cfg_set basepath "$bp"
   fi
+  # 统一存成 /xxx 格式，和程序里的 normalizeBasePath 一致
+  [[ -n $bp ]] && bp="/${bp}"
+  cfg_set basepath "$bp"
   svc_restart
-  echo -e "  ${G}新路径: /${bp}/${N}"
+  echo -e "  ${G}新路径: ${bp:-/}/${N}"
 }
 
 ipv6_state() {
@@ -387,7 +388,7 @@ cert_apply() {
   local port bp
   port=$(web_port); bp=$(cfg_get basepath)
   echo -e "  ${G}证书已启用${N}"
-  echo -e "  面板地址  ${B}https://$(public_ip):${port}/${bp}/${N}"
+  echo -e "  面板地址  ${B}https://$(public_ip):${port}${bp}/${N}"
 }
 
 cert_show() {

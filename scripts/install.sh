@@ -289,7 +289,7 @@ WEB_PORT=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.jso
 [[ -n "$WEB_PORT" ]] || WEB_PORT=8899
 PW=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('password',''))" 2>/dev/null)
 echo
-echo "  管理界面  http://${IP}:${WEB_PORT}/${BP}/"
+echo "  管理界面  http://${IP}:${WEB_PORT}${BP}/"
 echo "  访问口令  ${PW:-见 ${WORK_DIR}/config.json 的 password 字段}"
 echo
 echo "  路径和口令都是随机生成的，存在 ${WORK_DIR}/config.json 里："
