@@ -147,7 +147,7 @@ button.primary:hover:not(:disabled){background:var(--accent-d);border-color:tran
 svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
 select,input[type=search],input[type=text],input[type=password]{font:inherit;font-size:13px;background:var(--field);
   border:1px solid var(--border);color:var(--text);border-radius:10px;padding:7px 11px;width:100%}
-select:focus,input[type=search]:focus,input[type=text]:focus,input[type=password]:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+select:focus,input[type=search]:focus,input[type=text]:focus,input[type=password]:focus{outline:none;border-color:var(--accent)}
 textarea{width:100%;min-height:300px;background:var(--field);border:1px solid var(--border);color:var(--text);
   border-radius:10px;font:12px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:10px 12px;resize:vertical}
 textarea:focus{outline:none;border-color:var(--accent)}
@@ -272,6 +272,8 @@ label.f>span,div.f>span{display:block;color:var(--dim);font-size:12px;margin-bot
 .seg button, .rg{transition:none}
 /* 模式按钮也关掉按压位移：和地区按钮在同一个 label 里，按别的按钮时它会跟着"沉" */
 .seg button:active{transform:none}
+/* 加减按钮也关掉按压位移：stepper 里两个按钮挨着，translate 会视觉联动 */
+.stepper button:active{transform:none}
 .rg b{font-weight:600;font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rg em{display:block;font-style:normal;color:var(--dim);font-size:11px;margin-top:3px}
 .stepper{display:flex;align-items:center;width:fit-content;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--field)}
@@ -520,7 +522,7 @@ label.f>span,div.f>span{display:block;color:var(--dim);font-size:12px;margin-bot
           <div class="regions" id="regions" style="margin-top:8px"></div>
         </div>
       </div>
-      <label class="f">
+      <div class="f">
         <span id="countlabel">数量</span>
         <div class="stepper">
           <button id="minus" title="减少">
@@ -532,7 +534,7 @@ label.f>span,div.f>span{display:block;color:var(--dim);font-size:12px;margin-bot
           </button>
         </div>
         <div class="hint" id="availhint"></div>
-      </label>
+      </div>
       <label class="f" id="tplwrap">
         <span>节点模板</span>
         <select id="tpl"></select>
