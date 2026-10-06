@@ -17,5 +17,9 @@ func handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// 前端是 go:embed 打进二进制里的，发版即变：禁止浏览器缓存，
+	// 否则用户更新二进制后还看到旧版页面（如 v0.1.14 的地区列表 bug）
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
 	_, _ = w.Write([]byte(indexHTML))
 }
