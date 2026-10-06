@@ -1107,11 +1107,15 @@ function renderRegions(){
       + '<em>' + r.available + ' 个空闲 · ' + r.best_speed_mbps.toFixed(0) + ' Mbps</em></button>')
     .join('');
   // 直接绑定点击，避开 document 级委托的 closest 误匹配
+  // 点选只改样式不重建列表：重建是列表消失类 bug 的根源
   box.querySelectorAll('[data-rg]').forEach(b => {
     b.onclick = ev => {
       ev.stopPropagation();
       region = b.dataset.rg;
-      renderRegions();
+      // 只更新选中样式，不重建 DOM
+      box.querySelectorAll('[data-rg]').forEach(x =>
+        x.classList.toggle('sel', x.dataset.rg === region));
+      updateAvail();
     };
   });
   box.scrollTop = st;
