@@ -98,7 +98,14 @@ func CachedInbounds(b Backend, live map[string]bool) ([]Inbound, error) {
 	ibCache.mu.Lock()
 	defer ibCache.mu.Unlock()
 	if time.Since(ibCache.at) < inboundCacheTTL {
-		return ibCache.list, ibCache.err
+		// 缓存命中时用最新的 live 重算 BoundUp，避免隧道上下线后 2.5 秒内显示旧状态。
+		// 复制一份再改，不污染缓存。
+		list := make([]Inbound, len(ibCache.list))
+		copy(list, ibCache.list)
+		for i := range list {
+			list[i].BoundUp = live[list[i].BoundTo]
+		}
+		return list, ibCache.err
 	}
 
 	var list []Inbound

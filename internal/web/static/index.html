@@ -955,10 +955,15 @@ function renderNodes(){
   const nodeRow = (i, bound) => {
     const name = esc(i.remark || i.protocol);
     const sub = esc(i.protocol) + ' · 端口 ' + i.port;
-    const bindCtl = bound
-      ? '<button data-unbind="' + esc(i.tag) + '" data-name="' + name + '">解绑</button>'
-      : '<label class="bindlbl">绑定到<select class="obind" data-tag="' + esc(i.tag) + '">'
+    let bindCtl;
+    if(pendingBinds.has(i.tag)){
+      bindCtl = '<span class="dim small">绑定中…</span>';
+    }else if(bound){
+      bindCtl = '<button data-unbind="' + esc(i.tag) + '" data-name="' + name + '">解绑</button>';
+    }else{
+      bindCtl = '<label class="bindlbl">绑定到<select class="obind" data-tag="' + esc(i.tag) + '">'
         + exitOptions('') + '</select></label>';
+    }
     return '<div class="nrow">'
       + '<div class="ninfo"><b>' + name + '</b><span class="dim small">' + sub + '</span></div>'
       + '<span class="spacer"></span>'
@@ -1063,6 +1068,8 @@ async function poll(){
 }
 
 // ---- 新建向导 ----
+// 正在绑定的 tag 集合：renderNodes() 里直接画成"绑定中…"，轮询重建也不会丢状态
+const pendingBinds = new Set();
 let regions = [], region = '', regionsLoaded = false;
 let rgmode = 'auto'; // auto=不限地区 each=每个国家 one=指定地区
 // 模式换算成给后端的 region 参数：''=不限 '*'=每个国家，否则是国家码
@@ -1438,7 +1445,7 @@ function renderDetail(d){
     +   '<label class="ef"><span>备注</span>'
     +     '<input id="dremark" type="text" value="' + esc(d.remark || '') + '"></label>'
     +   '<label class="ef"><span>端口</span>'
-    +     '<input id="dport" type="text" inputmode="numeric" value="' + d.port + '"></label>'
+    +     '<input id="dport" type="text" inputmode="numeric" value="' + esc(d.port) + '"></label>'
     +   '<label class="chk"><input type="checkbox" id="denable"'
     +     (d.enable === false ? '' : ' checked') + '> 启用</label>'
     +   '<span class="spacer"></span>'
@@ -1454,27 +1461,37 @@ function renderDetail(d){
 document.addEventListener('change', async e => {
   const sel = e.target.closest('.obind');
   if(!sel || !sel.value) return;
-  sel.disabled = true;
+  const tag = sel.dataset.tag, host = sel.value;
+  pendingBinds.add(tag);
+  renderNodes(); // 立刻显示"绑定中…"
   try{
-    await api('/api/xui/bind?tag=' + encodeURIComponent(sel.dataset.tag)
-      + '&host=' + encodeURIComponent(sel.value), {method:'POST'});
+    await api('/api/xui/bind?tag=' + encodeURIComponent(tag)
+      + '&host=' + encodeURIComponent(host), {method:'POST'});
     toast('已绑定');
-    poll();
-  }catch(err){ toast(err.message, true); sel.disabled = false; }
+  }catch(err){ toast(err.message, true); }
+  finally{
+    pendingBinds.delete(tag);
+    poll(); // 后端已确认 3x-ui 生效，刷新拿最新数据
+  }
 });
 
 // 出口下拉改动即生效。绑定按 inboundTag 走，host 传空表示解绑回直连。
 document.addEventListener('change', async e => {
   const sel = e.target.closest('#dbind');
   if(!sel) return;
-  sel.disabled = true;
+  const tag = sel.dataset.tag, host = sel.value;
+  pendingBinds.add(tag);
+  // 解绑中的行在已绑定区，renderNodes 会把它画成"绑定中…"
+  renderNodes();
   try{
-    await api('/api/xui/bind?tag=' + encodeURIComponent(sel.dataset.tag)
-      + '&host=' + encodeURIComponent(sel.value), {method:'POST'});
-    toast(sel.value ? '已绑定' : '已解绑');
-    poll();
+    await api('/api/xui/bind?tag=' + encodeURIComponent(tag)
+      + '&host=' + encodeURIComponent(host), {method:'POST'});
+    toast(host ? '已绑定' : '已解绑');
   }catch(err){ toast(err.message, true); }
-  sel.disabled = false;
+  finally{
+    pendingBinds.delete(tag);
+    poll();
+  }
 });
 
 document.addEventListener('click', async e => {

@@ -443,6 +443,22 @@ func apiXUIBind(m *tunnel.Manager) http.HandlerFunc {
 			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
 			return
 		}
+		// 3x-ui 内部异步应用：等它真的生效再返回，像 3x-ui 自己的体验一样。
+		// 每 300ms 查一次，最多等 6 秒；超时也返回成功，前端轮询会兜底。
+		deadline := time.Now().Add(6 * time.Second)
+		for time.Now().Before(deadline) {
+			tunnel.InvalidateInbounds()
+			list, lerr := tunnel.CachedInbounds(m.Backend(), liveHosts(m))
+			if lerr == nil {
+				for _, ib := range list {
+					if ib.Tag == tag && ib.BoundTo == host {
+						goto confirmed
+					}
+				}
+			}
+			time.Sleep(300 * time.Millisecond)
+		}
+	confirmed:
 		tunnel.InvalidateInbounds()
 		writeJSON(w, http.StatusOK, map[string]string{"ok": "已更新"})
 	}
