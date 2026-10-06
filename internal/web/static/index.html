@@ -1112,9 +1112,9 @@ function renderRegions(){
     b.onclick = ev => {
       ev.stopPropagation();
       region = b.dataset.rg;
-      // 只更新选中样式，不重建 DOM
-      box.querySelectorAll('[data-rg]').forEach(x =>
-        x.classList.toggle('sel', x.dataset.rg === region));
+      // 先清掉所有选中，再给当前加：保证任何时候只有一个 sel
+      box.querySelectorAll('[data-rg].sel').forEach(x => x.classList.remove('sel'));
+      b.classList.add('sel');
       updateAvail();
     };
   });
