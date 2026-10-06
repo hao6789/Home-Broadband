@@ -1142,9 +1142,17 @@ function updateAvail(){
 
 async function loadWizard(){
   try{
-    regions = await api('/api/regions') || [];
-    regionsLoaded = true;
-    renderRegions();
+    const nr = await api('/api/regions') || [];
+    // API 返回空时不覆盖已有列表，避免打开向导时的重拉把用户正在看的列表清空
+    if(nr.length){
+      regions = nr;
+      regionsLoaded = true;
+      renderRegions();
+    }else if(!regionsLoaded){
+      regions = [];
+      regionsLoaded = true;
+      renderRegions();
+    }
   }catch(e){ toast('读取地区失败: ' + e.message, true); }
 
   const sel = $('#tpl');
