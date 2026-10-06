@@ -248,9 +248,9 @@ details.adv .f:last-child{margin-bottom:14px}
 .sheet .head h2{font-size:15px;margin:0;font-weight:700}
 .sheet .body{overflow:auto;padding:18px}
 .sheet .foot{display:flex;align-items:center;gap:10px;padding:14px 18px;border-top:1px solid var(--border)}
-label.f{display:block;margin-bottom:18px}
-label.f[hidden]{display:none}
-label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;font-weight:500}
+label.f,div.f{display:block;margin-bottom:18px}
+label.f[hidden],div.f[hidden]{display:none}
+label.f>span,div.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;font-weight:500}
 .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .seg button{border:1px solid var(--border);background:var(--card2);border-radius:12px;
   padding:10px 12px;display:flex;flex-direction:column;gap:4px;align-items:flex-start;
@@ -268,6 +268,8 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
 .rg:active{transform:none}
 /* 地区和模式按钮关掉 hover 过渡：0.14s 的渐变在鼠标快速划过时会导致多个按钮同时看起来高亮 */
 .seg button, .rg{transition:none}
+/* 模式按钮也关掉按压位移：和地区按钮在同一个 label 里，按别的按钮时它会跟着"沉" */
+.seg button:active{transform:none}
 .rg b{font-weight:600;font-size:13px;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rg em{display:block;font-style:normal;color:var(--dim);font-size:11px;margin-top:3px}
 .stepper{display:flex;align-items:center;width:fit-content;border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--field)}
@@ -504,7 +506,7 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
       </button>
     </div>
     <div class="body">
-      <label class="f">
+      <div class="f">
         <span>地区</span>
         <div class="seg" id="rgmode">
           <button data-rgmode="auto" class="sel"><b>不限地区</b><em>按速度自动挑</em></button>
@@ -515,7 +517,7 @@ label.f>span{display:block;color:var(--dim);font-size:12px;margin-bottom:7px;fon
           <input type="search" id="rgfilter" placeholder="筛选地区">
           <div class="regions" id="regions" style="margin-top:8px"></div>
         </div>
-      </label>
+      </div>
       <label class="f">
         <span id="countlabel">数量</span>
         <div class="stepper">
