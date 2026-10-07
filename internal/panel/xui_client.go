@@ -125,6 +125,7 @@ func clientEmails(tpl map[string]any) ([]string, error) {
 }
 
 // AddClient 给入站加一个客户端。
+// v3.9.0 起 POST /panel/api/inbounds/update 不再改动客户端，改调 clients/add。
 func (x *XUI) AddClient(id int, email string, tunnels []*tunnel.Tunnel) error {
 	raw, err := x.rawInbound(id)
 	if err != nil {
@@ -134,79 +135,126 @@ func (x *XUI) AddClient(id int, email string, tunnels []*tunnel.Tunnel) error {
 	if email == "" {
 		email = fmt.Sprintf("%s-%d-%s", proto, int(toFloat(raw["port"])), randomHex(3))
 	}
-	return x.updateInboundRaw(id, "加客户端", func(p, raw map[string]any) error {
-		settings, err := asObject(raw["settings"])
-		if err != nil {
-			return fmt.Errorf("解析 settings 失败: %w", err)
-		}
-		clients, _ := settings["clients"].([]any)
-		for _, c := range clients {
-			if cm, ok := c.(map[string]any); ok && fmt.Sprint(orEmpty(cm["email"])) == email {
-				return fmt.Errorf("客户端 %s 已存在", email)
-			}
-		}
-		settings["clients"] = append(clients, newClientEntry(proto, email))
-		p["settings"] = mustJSON(settings)
-		return nil
+	client := newClientEntry(proto, email)
+	body, err := json.Marshal(map[string]any{
+		"client":     client,
+		"inboundIds": []int{id},
 	})
+	if err != nil {
+		return err
+	}
+	endpoint := fmt.Sprintf("%s/panel/api/clients/add", x.base())
+	respBody, err := x.jsonRequest(http.MethodPost, endpoint, body)
+	if err != nil {
+		return fmt.Errorf("加客户端失败: %w", err)
+	}
+	var envelope struct {
+		Success bool   `json:"success"`
+		Msg     string `json:"msg"`
+	}
+	if err := json.Unmarshal(respBody, &envelope); err != nil {
+		return fmt.Errorf("解析加客户端响应失败: %s", strings.TrimSpace(string(respBody)))
+	}
+	if !envelope.Success {
+		return fmt.Errorf("加客户端失败: %s", envelope.Msg)
+	}
+	return nil
 }
 
 // DeleteClient 摘掉入站上的一个客户端。
+// v3.9.0 起改调 clients/del/{email}，旧 update 端点会静默忽略。
 func (x *XUI) DeleteClient(id int, email string, tunnels []*tunnel.Tunnel) error {
-	return x.updateInboundRaw(id, "删客户端", func(p, raw map[string]any) error {
-		settings, err := asObject(raw["settings"])
-		if err != nil {
-			return fmt.Errorf("解析 settings 失败: %w", err)
+	// 保留原来的保护：不能删最后一个客户端
+	raw, err := x.rawInbound(id)
+	if err != nil {
+		return err
+	}
+	settings, err := asObject(raw["settings"])
+	if err != nil {
+		return fmt.Errorf("解析 settings 失败: %w", err)
+	}
+	clients, _ := settings["clients"].([]any)
+	count := 0
+	for _, c := range clients {
+		if cm, ok := c.(map[string]any); ok && fmt.Sprint(orEmpty(cm["email"])) == email {
+			count++
 		}
-		clients, _ := settings["clients"].([]any)
-		kept := make([]any, 0, len(clients))
-		for _, c := range clients {
-			if cm, ok := c.(map[string]any); ok && fmt.Sprint(orEmpty(cm["email"])) == email {
-				continue
-			}
-			kept = append(kept, c)
-		}
-		if len(kept) == len(clients) {
-			return fmt.Errorf("客户端 %s 不存在", email)
-		}
-		if len(kept) == 0 {
-			return fmt.Errorf("这是最后一个客户端，删掉入站就没人能连了")
-		}
-		settings["clients"] = kept
-		p["settings"] = mustJSON(settings)
-		return nil
-	})
+	}
+	if count == 0 {
+		return fmt.Errorf("客户端 %s 不存在", email)
+	}
+	if len(clients) <= 1 {
+		return fmt.Errorf("这是最后一个客户端，删掉入站就没人能连了")
+	}
+	endpoint := fmt.Sprintf("%s/panel/api/clients/del/%s", x.base(), url.PathEscape(email))
+	respBody, err := x.jsonRequest(http.MethodPost, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("删客户端失败: %w", err)
+	}
+	var envelope struct {
+		Success bool   `json:"success"`
+		Msg     string `json:"msg"`
+	}
+	if err := json.Unmarshal(respBody, &envelope); err != nil {
+		return fmt.Errorf("解析删客户端响应失败: %s", strings.TrimSpace(string(respBody)))
+	}
+	if !envelope.Success {
+		return fmt.Errorf("删客户端失败: %s", envelope.Msg)
+	}
+	return nil
 }
 
 // ResetClient 换掉客户端凭据，已分发的旧链接随即失效。
+// v3.9.0 起改调 clients/update/{email} 发完整客户端 payload（服务端做替换）。
 func (x *XUI) ResetClient(id int, email string, tunnels []*tunnel.Tunnel) error {
-	return x.updateInboundRaw(id, "重置凭据", func(p, raw map[string]any) error {
-		proto := fmt.Sprint(raw["protocol"])
-		settings, err := asObject(raw["settings"])
-		if err != nil {
-			return fmt.Errorf("解析 settings 失败: %w", err)
+	raw, err := x.rawInbound(id)
+	if err != nil {
+		return err
+	}
+	proto := fmt.Sprint(raw["protocol"])
+	settings, err := asObject(raw["settings"])
+	if err != nil {
+		return fmt.Errorf("解析 settings 失败: %w", err)
+	}
+	clients, _ := settings["clients"].([]any)
+	var target map[string]any
+	for _, c := range clients {
+		cm, ok := c.(map[string]any)
+		if !ok || fmt.Sprint(orEmpty(cm["email"])) != email {
+			continue
 		}
-		clients, _ := settings["clients"].([]any)
-		found := false
-		for _, c := range clients {
-			cm, ok := c.(map[string]any)
-			if !ok || fmt.Sprint(orEmpty(cm["email"])) != email {
-				continue
-			}
-			found = true
-			if proto == "trojan" {
-				cm["password"] = randomHex(8)
-			} else {
-				cm["id"] = newUUID()
-			}
-		}
-		if !found {
-			return fmt.Errorf("客户端 %s 不存在", email)
-		}
-		settings["clients"] = clients
-		p["settings"] = mustJSON(settings)
-		return nil
-	})
+		target = cm
+		break
+	}
+	if target == nil {
+		return fmt.Errorf("客户端 %s 不存在", email)
+	}
+	// 换掉凭据，其他字段原样保留
+	if proto == "trojan" {
+		target["password"] = randomHex(8)
+	} else {
+		target["id"] = newUUID()
+	}
+	body, err := json.Marshal(target)
+	if err != nil {
+		return err
+	}
+	endpoint := fmt.Sprintf("%s/panel/api/clients/update/%s", x.base(), url.PathEscape(email))
+	respBody, err := x.jsonRequest(http.MethodPost, endpoint, body)
+	if err != nil {
+		return fmt.Errorf("重置凭据失败: %w", err)
+	}
+	var envelope struct {
+		Success bool   `json:"success"`
+		Msg     string `json:"msg"`
+	}
+	if err := json.Unmarshal(respBody, &envelope); err != nil {
+		return fmt.Errorf("解析重置凭据响应失败: %s", strings.TrimSpace(string(respBody)))
+	}
+	if !envelope.Success {
+		return fmt.Errorf("重置凭据失败: %s", envelope.Msg)
+	}
+	return nil
 }
 
 // newClientEntry 按协议造一个新客户端条目。

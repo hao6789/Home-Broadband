@@ -696,6 +696,42 @@ func (x *XUI) renameInbound(id int, remark string) error {
 //
 // 改端口会同时改掉 inboundTag（面板用 in-<端口>-<网络> 命名），
 // 所以绑定关系要跟着迁移，否则路由规则会指向一个不存在的入站。
+// setEnable 用新端点开关入站。返回 notFound=true 表示面板太老没有这个端点，
+// 调用方应回退到旧的 update 写法。v3.9.0 起 update 不再改 enable，必须走这里。
+func (x *XUI) setEnable(id int, enable bool) (notFound bool, err error) {
+	body, err := json.Marshal(map[string]any{"enable": enable})
+	if err != nil {
+		return false, err
+	}
+	endpoint := fmt.Sprintf("%s/panel/api/inbounds/setEnable/%d", x.base(), id)
+	req, err := http.NewRequest(http.MethodPost, endpoint, strings.NewReader(string(body)))
+	if err != nil {
+		return false, err
+	}
+	req.Header.Set("Authorization", "Bearer "+x.token)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := x.client.Do(req)
+	if err != nil {
+		return false, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusNotFound {
+		return true, nil
+	}
+	blob, _ := io.ReadAll(resp.Body)
+	var envelope struct {
+		Success bool   `json:"success"`
+		Msg     string `json:"msg"`
+	}
+	if err := json.Unmarshal(blob, &envelope); err != nil {
+		return false, fmt.Errorf("解析 setEnable 响应失败: %s", strings.TrimSpace(string(blob)))
+	}
+	if !envelope.Success {
+		return false, fmt.Errorf("开关入站失败: %s", envelope.Msg)
+	}
+	return false, nil
+}
+
 func (x *XUI) UpdateInbound(id int, patch InboundPatch, tunnels []*tunnel.Tunnel) error {
 	if patch.Port != nil {
 		used, err := x.usedPorts()
@@ -726,6 +762,16 @@ func (x *XUI) UpdateInbound(id int, patch InboundPatch, tunnels []*tunnel.Tunnel
 		}
 	}
 
+	// v3.9.0 起 enable 开关改走 setEnable 端点；老面板没有这个端点时回退到旧写法
+	enableViaOld := false
+	if patch.Enable != nil {
+		notFound, err := x.setEnable(id, *patch.Enable)
+		if err != nil {
+			return err
+		}
+		enableViaOld = notFound
+	}
+
 	if err := x.updateInboundRaw(id, "改入站", func(p, _ map[string]any) error {
 		if patch.Port != nil {
 			p["port"] = *patch.Port
@@ -733,7 +779,7 @@ func (x *XUI) UpdateInbound(id int, patch InboundPatch, tunnels []*tunnel.Tunnel
 		if patch.Remark != nil {
 			p["remark"] = *patch.Remark
 		}
-		if patch.Enable != nil {
+		if patch.Enable != nil && enableViaOld {
 			p["enable"] = *patch.Enable
 		}
 		return nil
