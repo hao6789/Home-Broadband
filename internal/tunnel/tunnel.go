@@ -329,7 +329,9 @@ func (t *Tunnel) startOpenVPN(dir string) error {
 	if err := CmdStart(cmd); err != nil {
 		return fmt.Errorf("启动 openvpn 失败: %w", err)
 	}
+	t.mu.Lock()
 	t.ovpn = cmd
+	t.mu.Unlock()
 	go cmd.Wait() // 回收子进程，避免僵尸
 
 	// openvpn 建好 tun0 前 SOCKS5 无法正常出网，这里等它就绪

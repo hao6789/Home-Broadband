@@ -174,8 +174,17 @@ func validateTLSCert(certFile, keyFile string) error {
 	if certFile == "" || keyFile == "" {
 		return fmt.Errorf("证书和私钥要一起填，只填一个启用不了 HTTPS")
 	}
-	if _, err := tls.LoadX509KeyPair(certFile, keyFile); err != nil {
+	kp, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
 		return fmt.Errorf("证书加载失败：%v", err)
+	}
+	// 检查过期：过期证书加载不报错，但客户端会拒绝，提前拦下
+	if len(kp.Certificate) > 0 {
+		if c, err := x509.ParseCertificate(kp.Certificate[0]); err == nil {
+			if time.Now().After(c.NotAfter) {
+				return fmt.Errorf("证书已于 %s 过期，请先续签", c.NotAfter.Format("2006-01-02"))
+			}
+		}
 	}
 	return nil
 }

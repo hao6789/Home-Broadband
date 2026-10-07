@@ -1068,7 +1068,10 @@ async function poll(){
       : (view.panel_info || '');
     renderDash();
     renderExits();
-    renderNodes();
+    // 用户正在节点列表里操作绑定下拉框时跳过重绘，避免下拉被强制关闭
+    const ae = document.activeElement;
+    const bindOpen = ae && ae.classList && ae.classList.contains('obind');
+    if(!bindOpen) renderNodes();
   }catch(e){
     console.warn('poll /api/exits 失败:', e && e.message || e);
   }finally{
@@ -1418,16 +1421,21 @@ $('#stopall').onclick = async e => {
 let curDetail = null;
 
 // 详情弹窗的重绘要跟轮询解耦：正在编辑时被 poll 刷掉输入会很烦
+let detailSeq = 0;
 async function openDetail(id){
+  const seq = ++detailSeq;
   $('#dbody').innerHTML = '<div class="empty"><div class="dim">读取中…</div></div>';
   curDetail = null;
   $('#ddel').disabled = true;
   openModal('detail');
   try{
     const d = await api('/api/xui/detail?id=' + id);
+    if(seq !== detailSeq) return; // 后点的覆盖了，丢弃过期响应
     curDetail = d;
     renderDetail(d);
+    $('#ddel').disabled = false;
   }catch(err){
+    if(seq !== detailSeq) return;
     $('#dbody').innerHTML = '<div class="empty"><div class="dim">读取失败: ' + esc(err.message) + '</div></div>';
   }
 }

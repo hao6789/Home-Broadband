@@ -83,10 +83,12 @@ func (m *Manager) reconnect(t *Tunnel, oldHost string) {
 		log.Printf("保存状态失败: %v", err)
 	}
 
+	t.mu.Lock()
 	if t.ovpn != nil && t.ovpn.Process != nil {
 		_ = t.ovpn.Process.Kill()
 		t.ovpn = nil
 	}
+	t.mu.Unlock()
 	t.teardownNetns()
 
 	go func() {

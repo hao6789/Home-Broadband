@@ -163,9 +163,12 @@ list_tunnels() {
   bp=$(cfg_get basepath)
   pw=$(cfg_get password)
   ck=$(mktemp)
-
-  curl -s --max-time 10 -c "$ck" -X POST -d "password=${pw}" \
+  # 口令写临时文件再 --data @file，避免进命令行被 ps 看到
+  pf=$(mktemp)
+  printf 'password=%s' "$pw" > "$pf"
+  curl -s --max-time 10 -c "$ck" -X POST --data @"$pf" \
     "http://127.0.0.1:${port}${bp}/login" -o /dev/null
+  rm -f "$pf"
   echo
   curl -s --max-time 10 -b "$ck" "http://127.0.0.1:${port}${bp}/api/tunnels" \
     > "$ck.json" 2>/dev/null
@@ -511,11 +514,24 @@ do_update() {
   echo -e "\n  当前 $("$BIN" -version 2>/dev/null || echo '-')"
   tmp=$(mktemp -d)
   echo "  正在下载最新版..."
-  if ! curl -fsSL "https://github.com/${REPO}/releases/latest/download/home-broadband-linux-${goarch}.tar.gz" \
+  arch="home-broadband-linux-${goarch}.tar.gz"
+  if ! curl -fsSL "https://github.com/${REPO}/releases/latest/download/${arch}" \
        -o "$tmp/f.tar.gz"; then
     echo -e "  ${R}下载失败${N}"; rm -rf "$tmp"; return
   fi
-  tar xzf "$tmp/f.tar.gz" -C "$tmp"
+  # 校验 checksums.txt，防止装上损坏/被篡改的包
+  if ! curl -fsSL "https://github.com/${REPO}/releases/latest/download/checksums.txt" \
+       -o "$tmp/checksums.txt"; then
+    echo -e "  ${R}下载校验文件失败，拒绝安装${N}"; rm -rf "$tmp"; return
+  fi
+  want=$(grep "  ${arch}$" "$tmp/checksums.txt" | awk '{print $1}')
+  got=$(sha256sum "$tmp/f.tar.gz" | awk '{print $1}')
+  if [ -z "$want" ] || [ "$want" != "$got" ]; then
+    echo -e "  ${R}校验失败，拒绝安装${N}"; rm -rf "$tmp"; return
+  fi
+  if ! tar xzf "$tmp/f.tar.gz" -C "$tmp"; then
+    echo -e "  ${R}解压失败${N}"; rm -rf "$tmp"; return
+  fi
   svc_stop
   install -m 755 "$tmp/home-broadband" "$BIN"
   migrate_port_to_settings

@@ -303,8 +303,8 @@ func apiProvision(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		count, err := strconv.Atoi(q.Get("count"))
-		if err != nil {
-			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "count 参数无效"})
+		if err != nil || count < 1 || count > 50 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "count 参数无效（1-50）"})
 			return
 		}
 		tpl := 0
@@ -640,8 +640,8 @@ func apiInboundUpdate(m *tunnel.Manager) http.HandlerFunc {
 		var patch panel.InboundPatch
 		if v := q.Get("port"); v != "" {
 			port, err := strconv.Atoi(v)
-			if err != nil {
-				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "端口无效"})
+			if err != nil || port < 1 || port > 65535 {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "端口无效（1-65535）"})
 				return
 			}
 			patch.Port = &port
