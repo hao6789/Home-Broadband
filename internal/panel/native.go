@@ -164,8 +164,8 @@ func (n *Native) Bind(inboundTag string, hostname string, tunnels []*tunnel.Tunn
 		if target == nil {
 			return fmt.Errorf("节点 %s 没有运行中的隧道", hostname)
 		}
-		if target.Status != "up" {
-			return fmt.Errorf("节点 %s 的隧道还没连通（当前 %s）", hostname, target.Status)
+		if target.GetStatus() != "up" {
+			return fmt.Errorf("节点 %s 的隧道还没连通（当前 %s）", hostname, target.GetStatus())
 		}
 	}
 
@@ -238,7 +238,7 @@ func (n *Native) CloneToTunnels(templateID int, hosts []string, tunnels []*tunne
 	created := []int{}
 	for _, host := range hosts {
 		t := byHost[host]
-		if t == nil || t.Status != "up" {
+		if t == nil || t.GetStatus() != "up" {
 			continue
 		}
 		port, err := tunnel.FreeRandomPort(used)

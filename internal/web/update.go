@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"os/exec"
@@ -340,11 +341,15 @@ func copyFileMode(src, dst string, mode os.FileMode) error {
 // systemd / openrc 各一套；都不可用时退回直接自我 exec。
 func restartSelf() {
 	if hasCmd("systemctl") && dirExists("/run/systemd/system") {
-		_ = exec.Command("systemctl", "restart", "home-broadband").Start()
+		if err := exec.Command("systemctl", "restart", "home-broadband").Start(); err != nil {
+			log.Printf("更新后重启服务失败: %v，仍在运行旧版本，请手动 systemctl restart home-broadband", err)
+		}
 		return
 	}
 	if hasCmd("rc-service") {
-		_ = exec.Command("rc-service", "home-broadband", "restart").Start()
+		if err := exec.Command("rc-service", "home-broadband", "restart").Start(); err != nil {
+			log.Printf("更新后重启服务失败: %v，仍在运行旧版本，请手动 rc-service home-broadband restart", err)
+		}
 		return
 	}
 	// 没有 init 系统托管：直接退出，让外部守护（若有）拉起；

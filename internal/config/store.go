@@ -110,8 +110,11 @@ func (s *Store) load() error {
 	var doc document
 	if err := json.Unmarshal(blob, &doc); err != nil {
 		corrupt := path + ".corrupt"
-		_ = os.Rename(path, corrupt)
-		log.Printf("配置 %s 损坏，已备份为 %s，用默认配置启动", path, corrupt)
+		if rerr := os.Rename(path, corrupt); rerr != nil {
+			log.Printf("配置 %s 损坏，但备份为 %s 失败: %v，用默认配置启动", path, corrupt, rerr)
+		} else {
+			log.Printf("配置 %s 损坏，已备份为 %s，用默认配置启动", path, corrupt)
+		}
 		return s.importLegacy()
 	}
 	if doc.Version > storeVersion {

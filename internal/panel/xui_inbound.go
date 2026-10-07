@@ -207,14 +207,14 @@ func (x *XUI) Bind(inboundTag string, hostname string, tunnels []*tunnel.Tunnel)
 		if target == nil {
 			return fmt.Errorf("节点 %s 没有运行中的隧道", hostname)
 		}
-		if target.Status != "up" {
-			return fmt.Errorf("节点 %s 的隧道还没连通（当前 %s）", hostname, target.Status)
+		if target.GetStatus() != "up" {
+			return fmt.Errorf("节点 %s 的隧道还没连通（当前 %s）", hostname, target.GetStatus())
 		}
 	}
 
 	live := map[string]bool{}
 	for _, t := range tunnels {
-		if t.Status == "up" {
+		if t.GetStatus() == "up" {
 			live[tunnel.SanitizeTag(t.Node.HostName)] = true
 		}
 	}
@@ -296,7 +296,7 @@ func (x *XUI) syncOutbounds(setting map[string]any, tunnels []*tunnel.Tunnel) {
 		}
 	}
 	for _, t := range tunnels {
-		if t.Status != "up" {
+		if t.GetStatus() != "up" {
 			continue
 		}
 		kept = append(kept, map[string]any{
@@ -346,7 +346,7 @@ func (x *XUI) CloneToTunnels(templateID int, hosts []string, tunnels []*tunnel.T
 	created := []int{}
 	for _, host := range hosts {
 		t := byHost[host]
-		if t == nil || t.Status != "up" {
+		if t == nil || t.GetStatus() != "up" {
 			continue
 		}
 
@@ -770,6 +770,13 @@ func (x *XUI) UpdateInbound(id int, patch InboundPatch, tunnels []*tunnel.Tunnel
 			return err
 		}
 		enableViaOld = notFound
+	}
+
+	// 新端点已处理 enable 且没有其他字段要改时，跳过这次空写回，
+	// 避免无意义的 API 调用失败导致误报
+	needsUpdate := patch.Port != nil || patch.Remark != nil || (patch.Enable != nil && enableViaOld)
+	if !needsUpdate {
+		return nil
 	}
 
 	if err := x.updateInboundRaw(id, "改入站", func(p, _ map[string]any) error {

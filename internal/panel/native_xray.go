@@ -62,7 +62,7 @@ func findXray(workDir string) (string, error) {
 func buildXrayConfig(inbounds []*nativeInbound, tunnels []*tunnel.Tunnel) map[string]any {
 	live := map[string]bool{}
 	for _, t := range tunnels {
-		if t.Status == "up" {
+		if t.GetStatus() == "up" {
 			live[tunnel.SanitizeTag(t.Node.HostName)] = true
 		}
 	}
@@ -86,7 +86,7 @@ func buildXrayConfig(inbounds []*nativeInbound, tunnels []*tunnel.Tunnel) map[st
 		map[string]any{"tag": "block", "protocol": "blackhole"},
 	}
 	for _, t := range tunnels {
-		if t.Status != "up" {
+		if t.GetStatus() != "up" {
 			continue
 		}
 		outs = append(outs, map[string]any{

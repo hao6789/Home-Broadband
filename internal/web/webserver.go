@@ -28,7 +28,21 @@ type webServer struct {
 }
 
 func NewWebServer(h http.Handler) *webServer {
-	return &webServer{handler: h}
+	return &webServer{handler: recoverMiddleware(h)}
+}
+
+// recoverMiddleware 兜住 handler 里的 panic，记日志后回 500，
+// 避免单个坏请求拖垮整个服务进程。
+func recoverMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Printf("HTTP panic %s %s: %v", r.Method, r.URL.Path, rec)
+				http.Error(w, "内部错误", http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 // serve 用当前 config.WebSettings 起第一个监听并阻塞。返回时说明监听彻底退出。

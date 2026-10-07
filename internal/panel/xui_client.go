@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"home-broadband/internal/tunnel"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -135,6 +136,17 @@ func (x *XUI) AddClient(id int, email string, tunnels []*tunnel.Tunnel) error {
 	if email == "" {
 		email = fmt.Sprintf("%s-%d-%s", proto, int(toFloat(raw["port"])), randomHex(3))
 	}
+	// 预检查邮箱是否已存在，给出友好错误（v3.9.0 前这步在 updateInboundRaw 里做）
+	settings, err := asObject(raw["settings"])
+	if err != nil {
+		return fmt.Errorf("解析 settings 失败: %w", err)
+	}
+	clients, _ := settings["clients"].([]any)
+	for _, c := range clients {
+		if cm, ok := c.(map[string]any); ok && fmt.Sprint(orEmpty(cm["email"])) == email {
+			return fmt.Errorf("客户端 %s 已存在", email)
+		}
+	}
 	client := newClientEntry(proto, email)
 	body, err := json.Marshal(map[string]any{
 		"client":     client,
@@ -200,6 +212,14 @@ func (x *XUI) DeleteClient(id int, email string, tunnels []*tunnel.Tunnel) error
 	}
 	if !envelope.Success {
 		return fmt.Errorf("删客户端失败: %s", envelope.Msg)
+	}
+	// 防御性复查：删后确认入站没被删空（极端并发下预检查可能失效）
+	if raw2, rerr := x.rawInbound(id); rerr == nil {
+		if s2, serr := asObject(raw2["settings"]); serr == nil {
+			if c2, _ := s2["clients"].([]any); len(c2) == 0 {
+				log.Printf("警告：入站 %d 的客户端被删空，请尽快添加新客户端", id)
+			}
+		}
 	}
 	return nil
 }
