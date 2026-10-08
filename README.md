@@ -32,6 +32,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/hao6789/Home-Broadband/main/
 
 常用操作也可以直接带参数：`h info` 看连接信息，`h list` 看隧道，`h update` 更新，`h uninstall` 卸载。
 
+Web 面板：导航栏有退出登录按钮；批量开出口任务可中途取消；改口令后所有会话自动失效需重新登录。
+
 ## 🔒 HTTPS
 
 面板原生支持 HTTPS，两种方式二选一：
