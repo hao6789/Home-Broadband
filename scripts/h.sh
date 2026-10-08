@@ -653,7 +653,7 @@ do_uninstall() {
   done
   # 删掉安装时加的 iptables FORWARD 规则（persist 的那份也清）
   # 默认 10.99.0.0/16，自定义 WORK_DIR 用 10.<base>.0.0/16（base 见 instance.go）
-  for net in "10.99.0.0/16" $(iptables-save 2>/dev/null | grep -oP '10\.\d+\.0\.0/16' | sort -u); do
+  for net in "10\.99.0\.0/16" $(iptables-save 2>/dev/null | grep -oE '10\.[0-9]+\.0\.0/16' | sort -u); do
     for dir in "-s" "-d"; do
       while iptables -C FORWARD $dir $net -j ACCEPT 2>/dev/null; do
         iptables -D FORWARD $dir $net -j ACCEPT 2>/dev/null
