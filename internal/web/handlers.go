@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,6 +18,12 @@ func writeJSON(w http.ResponseWriter, code int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// writeServerError 记详细日志，给前端返回通用文案，避免内部细节外泄。
+func writeServerError(w http.ResponseWriter, code int, err error, publicMsg string) {
+	log.Printf("API %d: %v", code, err)
+	writeJSON(w, code, map[string]string{"error": publicMsg})
 }
 
 func apiNodes(m *tunnel.Manager) http.HandlerFunc {
@@ -96,7 +103,7 @@ func apiRefresh(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		n, err := m.RefreshNodes()
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]int{"count": n})
@@ -188,7 +195,7 @@ func apiSettings(auth *Auth, srv *webServer) http.HandlerFunc {
 			// 顺序颠倒会把这个开关写回旧值。
 			if in.ResidentialOnly != nil {
 				if err := config.SetResidentialOnly(*in.ResidentialOnly); err != nil {
-					writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+					writeServerError(w, http.StatusInternalServerError, err, "服务器内部错误")
 					return
 				}
 			}
@@ -248,7 +255,7 @@ func apiSettings(auth *Auth, srv *webServer) http.HandlerFunc {
 func apiUpdateCheck(w http.ResponseWriter, r *http.Request) {
 	st, err := checkUpdate()
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "检查更新失败: " + err.Error()})
+		writeServerError(w, http.StatusBadGateway, err, "检查更新失败，请稍后重试")
 		return
 	}
 	writeJSON(w, http.StatusOK, st)
@@ -262,7 +269,7 @@ func apiUpdateApply(w http.ResponseWriter, r *http.Request) {
 	}
 	st, err := checkUpdate()
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "检查更新失败: " + err.Error()})
+		writeServerError(w, http.StatusBadGateway, err, "检查更新失败，请稍后重试")
 		return
 	}
 	if !st.HasUpdate {
@@ -272,7 +279,7 @@ func apiUpdateApply(w http.ResponseWriter, r *http.Request) {
 	// 把 checkUpdate 拿到的 release 传进去，避免 applyUpdate 再调一次 API
 	//（省配额，也避免两次查询之间 release 变化的 TOCTOU）
 	if err := applyUpdateWithRelease(st.Release); err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeServerError(w, http.StatusInternalServerError, err, "服务器内部错误")
 		return
 	}
 	// 先把响应发回去，restartSelf 已排在延迟后触发
@@ -419,7 +426,7 @@ func apiXUIInbounds(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		list, err := tunnel.CachedInbounds(m.Backend(), liveHosts(m))
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 		writeJSON(w, http.StatusOK, list)
@@ -448,11 +455,11 @@ func apiXUIBind(m *tunnel.Manager) http.HandlerFunc {
 		host := r.URL.Query().Get("host")
 		x, err := panel.OpenPanel()
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 		if err := x.Bind(tag, host, m.Tunnels()); err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 		// 3x-ui 内部异步应用：等它真的生效再返回，像 3x-ui 自己的体验一样。
@@ -508,13 +515,14 @@ func apiXUIClone(m *tunnel.Manager) http.HandlerFunc {
 
 		x, err := panel.OpenPanel()
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 		ports, err := x.CloneToTunnels(id, hosts, tunnels)
 		tunnel.InvalidateInbounds()
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error(), "created": ports})
+			log.Printf("API 502: %v", err)
+			writeJSON(w, http.StatusBadGateway, map[string]any{"error": "部分克隆失败", "created": ports})
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]any{"created": ports})
@@ -530,7 +538,7 @@ func apiXUIDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	x, err := panel.OpenPanel()
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 		return
 	}
 	host := r.URL.Query().Get("host")
@@ -539,7 +547,7 @@ func apiXUIDetail(w http.ResponseWriter, r *http.Request) {
 	}
 	detail, err := x.InboundDetail(id, host)
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 		return
 	}
 	writeJSON(w, http.StatusOK, detail)
@@ -565,7 +573,7 @@ func publicHost(r *http.Request) string {
 func apiXUILinks(w http.ResponseWriter, r *http.Request) {
 	x, err := panel.OpenPanel()
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+		writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 		return
 	}
 
@@ -579,7 +587,7 @@ func apiXUILinks(w http.ResponseWriter, r *http.Request) {
 	} else {
 		list, err := x.Inbounds(nil)
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 		for _, ib := range list {
@@ -597,7 +605,8 @@ func apiXUILinks(w http.ResponseWriter, r *http.Request) {
 	}
 	links, err := x.InboundLinks(ids, host)
 	if err != nil {
-		writeJSON(w, http.StatusBadGateway, map[string]any{"error": err.Error(), "links": links})
+		log.Printf("API 502: %v", err)
+			writeJSON(w, http.StatusBadGateway, map[string]any{"error": "获取链接失败", "links": links})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"links": links})
@@ -618,13 +627,13 @@ func apiXUIDelete(m *tunnel.Manager) http.HandlerFunc {
 		}
 		x, err := panel.OpenPanel()
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 		err = x.DeleteInbounds(ids, m.Tunnels())
 		tunnel.InvalidateInbounds()
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 		writeJSON(w, http.StatusOK, map[string]int{"deleted": len(ids)})
@@ -638,7 +647,7 @@ func apiInboundUpdate(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		p, err := panel.OpenPanel()
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 		q := r.URL.Query()
@@ -683,7 +692,7 @@ func clientAction(m *tunnel.Manager, what string,
 	return func(w http.ResponseWriter, r *http.Request) {
 		p, err := panel.OpenPanel()
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 		id, err := strconv.Atoi(r.URL.Query().Get("id"))
@@ -723,7 +732,7 @@ func apiInboundCreate(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		p, err := panel.OpenPanel()
 		if err != nil {
-			writeJSON(w, http.StatusBadGateway, map[string]string{"error": err.Error()})
+			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
 			return
 		}
 
