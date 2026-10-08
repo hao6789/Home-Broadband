@@ -278,8 +278,12 @@ func TestHandleSubSurfacesPanelError(t *testing.T) {
 	if rec.Code != http.StatusBadGateway {
 		t.Fatalf("应当 502，实际 %d", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "不生成链接") {
-		t.Fatalf("错误原因没透出来: %q", rec.Body.String())
+	// 5xx 不透传内部细节，给通用文案
+	if !strings.Contains(rec.Body.String(), "生成订阅失败") {
+		t.Fatalf("应返回通用文案: %q", rec.Body.String())
+	}
+	if strings.Contains(rec.Body.String(), "不生成链接") {
+		t.Fatalf("内部细节不应外泄: %q", rec.Body.String())
 	}
 }
 

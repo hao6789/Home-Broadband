@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/base64"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -177,8 +178,9 @@ func handleSub(m *tunnel.Manager) http.HandlerFunc {
 		}
 		links, err := subLinks(m, host, q.Get("bound") != "0")
 		if err != nil {
-			// 节点后端不给链接
-			http.Error(w, "生成订阅失败: "+tunnel.FirstLine(err.Error()), http.StatusBadGateway)
+			// 节点后端不给链接；记日志，给客户端通用文案
+			log.Printf("生成订阅失败: %v", err)
+			http.Error(w, "生成订阅失败，请稍后重试", http.StatusBadGateway)
 			return
 		}
 		if len(links) == 0 {
