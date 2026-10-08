@@ -101,6 +101,21 @@ func (x *XUI) jsonRequest(method, endpoint string, body []byte) ([]byte, error) 
 	return io.ReadAll(resp.Body)
 }
 
+// checkEnvelope 解析面板统一的 success/msg 信封，失败时返回带 what 前缀的错误。
+func checkEnvelope(body []byte, what string) error {
+	var envelope struct {
+		Success bool   `json:"success"`
+		Msg     string `json:"msg"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return fmt.Errorf("解析%s响应失败: %s", what, strings.TrimSpace(string(body)))
+	}
+	if !envelope.Success {
+		return fmt.Errorf("%s失败: %s", what, envelope.Msg)
+	}
+	return nil
+}
+
 func isDuplicateEmail(err error) bool {
 	return err != nil && strings.Contains(err.Error(), "Duplicate email")
 }
@@ -160,17 +175,7 @@ func (x *XUI) AddClient(id int, email string, tunnels []*tunnel.Tunnel) error {
 	if err != nil {
 		return fmt.Errorf("加客户端失败: %w", err)
 	}
-	var envelope struct {
-		Success bool   `json:"success"`
-		Msg     string `json:"msg"`
-	}
-	if err := json.Unmarshal(respBody, &envelope); err != nil {
-		return fmt.Errorf("解析加客户端响应失败: %s", strings.TrimSpace(string(respBody)))
-	}
-	if !envelope.Success {
-		return fmt.Errorf("加客户端失败: %s", envelope.Msg)
-	}
-	return nil
+	return checkEnvelope(respBody, "加客户端")
 }
 
 // DeleteClient 摘掉入站上的一个客户端。
@@ -203,15 +208,8 @@ func (x *XUI) DeleteClient(id int, email string, tunnels []*tunnel.Tunnel) error
 	if err != nil {
 		return fmt.Errorf("删客户端失败: %w", err)
 	}
-	var envelope struct {
-		Success bool   `json:"success"`
-		Msg     string `json:"msg"`
-	}
-	if err := json.Unmarshal(respBody, &envelope); err != nil {
-		return fmt.Errorf("解析删客户端响应失败: %s", strings.TrimSpace(string(respBody)))
-	}
-	if !envelope.Success {
-		return fmt.Errorf("删客户端失败: %s", envelope.Msg)
+	if err := checkEnvelope(respBody, "删客户端"); err != nil {
+		return err
 	}
 	// 防御性复查：删后确认入站没被删空（极端并发下预检查可能失效）
 	if raw2, rerr := x.rawInbound(id); rerr == nil {
@@ -264,17 +262,7 @@ func (x *XUI) ResetClient(id int, email string, tunnels []*tunnel.Tunnel) error 
 	if err != nil {
 		return fmt.Errorf("重置凭据失败: %w", err)
 	}
-	var envelope struct {
-		Success bool   `json:"success"`
-		Msg     string `json:"msg"`
-	}
-	if err := json.Unmarshal(respBody, &envelope); err != nil {
-		return fmt.Errorf("解析重置凭据响应失败: %s", strings.TrimSpace(string(respBody)))
-	}
-	if !envelope.Success {
-		return fmt.Errorf("重置凭据失败: %s", envelope.Msg)
-	}
-	return nil
+	return checkEnvelope(respBody, "重置凭据")
 }
 
 // newClientEntry 按协议造一个新客户端条目。

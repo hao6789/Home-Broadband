@@ -156,18 +156,6 @@ var errCmdNotSupported = errors.New("仅支持 CONNECT 与 UDP ASSOCIATE")
 // errIPv6NotSupported 表示拒绝 IPv6 目标：隧道内只有 IPv4。
 var errIPv6NotSupported = errors.New("隧道内不支持 IPv6")
 
-// socksReadRequest 读请求并返回目标地址（仅 CONNECT，兼容旧调用）。
-func socksReadRequest(c net.Conn) (string, error) {
-	cmd, addr, err := socksReadRequestWithCmd(c)
-	if err != nil {
-		return "", err
-	}
-	if cmd != cmdConnect {
-		return "", errCmdNotSupported
-	}
-	return addr, nil
-}
-
 // socksReadRequestWithCmd 读请求并返回命令与目标地址，支持 CONNECT 与 UDP ASSOCIATE。
 func socksReadRequestWithCmd(c net.Conn) (byte, string, error) {
 	head := make([]byte, 4)
