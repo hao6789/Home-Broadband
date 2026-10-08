@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"home-broadband/internal/config"
@@ -115,10 +116,23 @@ func apiStop(m *tunnel.Manager) http.HandlerFunc {
 }
 
 func apiRefresh(m *tunnel.Manager) http.HandlerFunc {
+	var mu sync.Mutex
+	var last time.Time
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !requirePost(w, r) {
 			return
 		}
+		// 节流：每次拉取最长 60 秒，30 秒内重复刷直接返回上次结果
+		mu.Lock()
+		if time.Since(last) < 30*time.Second {
+			mu.Unlock()
+			nodes, _ := m.Nodes()
+			writeJSON(w, http.StatusOK, map[string]any{"count": len(nodes), "cached": true})
+			return
+		}
+		last = time.Now()
+		mu.Unlock()
+
 		n, err := m.RefreshNodes()
 		if err != nil {
 			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")

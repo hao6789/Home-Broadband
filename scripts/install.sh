@@ -12,6 +12,12 @@ WEB_PORT="${WEB_PORT:-8899}"
 WORK_DIR="${WORK_DIR:-/var/lib/home-broadband}"
 BIN=/usr/local/bin/home-broadband
 
+# WEB_PORT 必须是 1-65535 的数字
+if ! [[ $WEB_PORT =~ ^[0-9]+$ ]] || (( WEB_PORT < 1 || WEB_PORT > 65535 )); then
+  echo "WEB_PORT 不合法（须为 1-65535）: ${WEB_PORT}" >&2
+  exit 1
+fi
+
 # WORK_DIR 校验：非空、绝对路径、不含换行（后面要拼进 python/sed/heredoc）
 if [[ -z $WORK_DIR || $WORK_DIR != /* || $WORK_DIR == *$'\n'* ]]; then
   echo "WORK_DIR 不合法（须为非空绝对路径且不含换行）: ${WORK_DIR}" >&2
@@ -209,7 +215,7 @@ else
     echo "      也可以 clone 仓库后在源码目录运行本脚本" >&2
     exit 1
   fi
-  tar xzf "$TMP/pkg.tar.gz" -C "$TMP"
+  tar xzf "$TMP/pkg.tar.gz" -C "$TMP" || { echo "解压安装包失败，可能是下载不完整" >&2; exit 1; }
   install -m 755 "$TMP/home-broadband" "$BIN"
   [[ -f deploy/home-broadband.service ]] || { mkdir -p deploy && cp "$TMP/deploy/home-broadband.service" deploy/; }
   [[ -f "$TMP/scripts/h.sh" ]] && install -m 755 "$TMP/scripts/h.sh" /usr/local/bin/h
@@ -255,7 +261,7 @@ else
 fi
 
 echo "[4/6] 放行转发"
-sysctl -qw net.ipv4.ip_forward=1
+sysctl -qw net.ipv4.ip_forward=1 2>/dev/null || echo "警告: 无法设置 ip_forward（容器环境常见），隧道功能可能受限" >&2
 grep -q '^net.ipv4.ip_forward=1' /etc/sysctl.conf 2>/dev/null \
   || echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
 # FORWARD 链常有兜底 REJECT，home-broadband 用的网段要插到最前面

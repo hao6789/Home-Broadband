@@ -602,10 +602,10 @@ func buildTLS(dir string, spec NewInboundSpec) (*tlsConfig, error) {
 	}
 	if cert != "" && key != "" {
 		if _, err := os.Stat(cert); err != nil {
-			return nil, fmt.Errorf("证书文件不可读: %w", err)
+			return nil, fmt.Errorf("证书文件不可读")
 		}
 		if _, err := os.Stat(key); err != nil {
-			return nil, fmt.Errorf("私钥文件不可读: %w", err)
+			return nil, fmt.Errorf("私钥文件不可读")
 		}
 		conf.CertFile, conf.KeyFile = cert, key
 		return conf, nil

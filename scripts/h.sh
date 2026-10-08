@@ -191,13 +191,15 @@ show_info() {
 }
 
 list_tunnels() {
-  local port bp pw ck
+  local port bp pw ck pf
   port=$(web_port)
   bp=$(cfg_get basepath)
   pw=$(cfg_get password)
   ck=$(mktemp)
-  # 口令写临时文件再 --data @file，避免进命令行被 ps 看到
   pf=$(mktemp)
+  # Ctrl-C 也清理临时文件
+  trap 'rm -f "$ck" "$pf" "$ck.json"' RETURN INT TERM
+  # 口令写临时文件再 --data @file，避免进命令行被 ps 看到
   printf 'password=%s' "$pw" > "$pf"
   curl -s --max-time 10 -c "$ck" -X POST --data @"$pf" \
     "http://127.0.0.1:${port}${bp}/login" -o /dev/null
