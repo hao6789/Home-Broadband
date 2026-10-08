@@ -14,6 +14,31 @@ if(_t==='dark'||_t==='light')document.documentElement.setAttribute('data-theme',
 [hidden]{display:none!important}
 /* ===== 主题：默认深色；浅色可手动选，或跟随系统 ===== */
 :root{
+  color-scheme:light;
+  --bg:#f5f7fa;
+  --side:#ffffff;
+  --card:#ffffff;
+  --card2:#f1f4f9;
+  --field:#ffffff;
+  --border:#dde3ec;
+  --border-soft:#e9edf4;
+  --text:#1a2233;
+  --dim:#5b6b82;
+  --dim2:#8a94a8;
+  --accent:#2563eb;
+  --accent-d:#1d4ed8;
+  --accent-soft:rgba(37,99,235,.1);
+  --accent-glow:rgba(37,99,235,.22);
+  --ok:#16a34a;
+  --warn:#d97706;
+  --bad:#dc2626;
+  --shadow:0 1px 3px rgba(25,35,55,.1),0 6px 16px rgba(25,35,55,.06);
+  --shadow-lg:0 24px 64px rgba(25,35,55,.18);
+  --overlay:rgba(40,50,70,.4);
+  --radius:14px;
+  --radius-sm:10px;
+}
+html[data-theme="dark"]{
   color-scheme:dark;
   --bg:#0a0e14;
   --side:#0e131b;
@@ -25,10 +50,10 @@ if(_t==='dark'||_t==='light')document.documentElement.setAttribute('data-theme',
   --text:#f2f5fa;
   --dim:#9aa6b8;
   --dim2:#6e7a8e;
-  --accent:#10b981;
-  --accent-d:#0c9a6b;
-  --accent-soft:rgba(16,185,129,.12);
-  --accent-glow:rgba(16,185,129,.25);
+  --accent:#3b82f6;
+  --accent-d:#2563eb;
+  --accent-soft:rgba(59,130,246,.14);
+  --accent-glow:rgba(59,130,246,.28);
   --ok:#34d399;
   --warn:#fbbf24;
   --bad:#f87171;
@@ -40,22 +65,22 @@ if(_t==='dark'||_t==='light')document.documentElement.setAttribute('data-theme',
 }
 html[data-theme="light"]{
   color-scheme:light;
-  --bg:#eef1f6;
+  --bg:#f5f7fa;
   --side:#ffffff;
   --card:#ffffff;
-  --card2:#f4f6fa;
+  --card2:#f1f4f9;
   --field:#ffffff;
   --border:#dde3ec;
-  --border-soft:#e8ecf3;
-  --text:#161b26;
-  --dim:#5f6b7e;
-  --dim2:#8a94a6;
-  --accent:#059669;
-  --accent-d:#047857;
-  --accent-soft:rgba(5,150,105,.1);
-  --accent-glow:rgba(5,150,105,.18);
-  --ok:#059669;
-  --warn:#b45309;
+  --border-soft:#e9edf4;
+  --text:#1a2233;
+  --dim:#5b6b82;
+  --dim2:#8a94a8;
+  --accent:#2563eb;
+  --accent-d:#1d4ed8;
+  --accent-soft:rgba(37,99,235,.1);
+  --accent-glow:rgba(37,99,235,.22);
+  --ok:#16a34a;
+  --warn:#d97706;
   --bad:#dc2626;
   --shadow:0 1px 3px rgba(25,35,55,.1),0 6px 16px rgba(25,35,55,.06);
   --shadow-lg:0 24px 64px rgba(25,35,55,.18);
@@ -66,22 +91,22 @@ html[data-theme="light"]{
 @media (prefers-color-scheme:light){
   html:not([data-theme]){
     color-scheme:light;
-    --bg:#eef1f6;
+    --bg:#f5f7fa;
     --side:#ffffff;
     --card:#ffffff;
-    --card2:#f4f6fa;
+    --card2:#f1f4f9;
     --field:#ffffff;
     --border:#dde3ec;
-    --border-soft:#e8ecf3;
-    --text:#161b26;
-    --dim:#5f6b7e;
-    --dim2:#8a94a6;
-    --accent:#059669;
-    --accent-d:#047857;
-    --accent-soft:rgba(5,150,105,.1);
-    --accent-glow:rgba(5,150,105,.18);
-    --ok:#059669;
-    --warn:#b45309;
+    --border-soft:#e9edf4;
+    --text:#1a2233;
+    --dim:#5b6b82;
+    --dim2:#8a94a8;
+    --accent:#2563eb;
+    --accent-d:#1d4ed8;
+    --accent-soft:rgba(37,99,235,.1);
+    --accent-glow:rgba(37,99,235,.22);
+    --ok:#16a34a;
+    --warn:#d97706;
     --bad:#dc2626;
     --shadow:0 1px 3px rgba(25,35,55,.1),0 6px 16px rgba(25,35,55,.06);
     --shadow-lg:0 24px 64px rgba(25,35,55,.18);
@@ -120,7 +145,7 @@ body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);
   background:transparent;color:var(--dim);font-size:14px;font-weight:500;cursor:pointer;text-align:left;transition:none}
 .nav button:hover{background:var(--card);color:var(--text)}
 .nav button.on{background:var(--accent-soft);color:var(--accent);font-weight:700;
-  box-shadow:inset 0 0 0 1px rgba(16,185,129,.25)}
+  box-shadow:inset 0 0 0 1px var(--accent-glow)}
 .nav button svg{width:18px;height:18px;flex:none}
 .badge{margin-left:auto;font-size:11px;font-weight:700;background:var(--card2);border:1px solid var(--border);
   color:var(--dim);border-radius:20px;padding:2px 10px;font-variant-numeric:tabular-nums}
@@ -286,13 +311,13 @@ label.f>span,div.f>span{display:block;color:var(--dim);font-size:12px;margin-bot
   text-align:left;box-shadow:none;font-weight:600}
 .seg button b{font-size:13px}
 .seg button em{font-style:normal;font-size:11px;color:var(--dim)}
-.seg button.sel{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px rgba(16,185,129,.3)}
+.seg button.sel{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-glow)}
 .seg button.sel b{color:var(--accent)}
 .regions{display:grid;grid-template-columns:repeat(auto-fill,minmax(155px,1fr));gap:10px;max-height:240px;overflow:auto;scrollbar-gutter:stable}
 .rg{border:1px solid var(--border);background:var(--card2);border-radius:12px;padding:11px 14px;cursor:pointer;
   text-align:left;display:block;width:100%;box-shadow:none}
 .rg:hover{border-color:var(--accent)}
-.rg.sel{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px rgba(16,185,129,.3)}
+.rg.sel{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-glow)}
 /* 去掉焦点 outline：点选后浏览器的焦点框超出容器会触发多余滚动条，选中态已有边框变色足够 */
 .rg:focus,.rg:focus-visible{outline:none}
 /* 地区按钮关掉全局按压位移：grid 里多按钮同时 translate 会视觉抖动，看起来像好几个一起被按下 */
