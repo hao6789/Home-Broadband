@@ -965,6 +965,7 @@ function renderExits(){
 }
 
 /* ---- 节点：按地区分组，地区下再按出口分，IP 跟在地区后面 ---- */
+let lastNodesHash = '';
 function renderNodes(){
   const box = $('#nodelist');
   const withNodes = view.exits.filter(e => (e.inbounds || []).length);
@@ -972,6 +973,11 @@ function renderNodes(){
   const total = withNodes.reduce((a, e) => a + e.inbounds.length, 0) + unbound.length;
   $('#ncount').textContent = total ? total + ' 个' : '';
   $('#navNcount').textContent = total || '';
+
+  // 数据没变就跳过重绘，省掉每 3 秒的全量 DOM 重建
+  const hash = JSON.stringify(withNodes.map(e => [e.host, (e.inbounds||[]).map(i => [i.id, i.port, i.remark, i.enable, i.boundTo])])) + '|' + JSON.stringify(unbound);
+  if(hash === lastNodesHash) return;
+  lastNodesHash = hash;
 
   // 一行一个节点：名字 + 协议端口，右边是看得见的操作按钮，不再藏点击
   const nodeRow = (i, bound) => {
@@ -1059,7 +1065,8 @@ function renderJobs(jobs){
       return '<span class="step ' + s.status + '" title="' + esc(t) + '">' + ic
         + esc(s.status === 'ok' && s.detail ? s.detail : s.label) + '</span>';
     }).join('');
-    const close = j.status === 'running' ? ''
+    const close = j.status === 'running'
+      ? '<button class="iconbtn" data-jobcancel="' + esc(j.id) + '" title="取消任务">' + ICON.stop + '</button>'
       : '<button class="iconbtn" data-job="' + esc(j.id) + '" title="关闭">' + ICON.x + '</button>';
     return '<div class="job"><div class="top"><strong>' + esc(j.summary) + '</strong>'
       + '<span class="count">' + j.done + '/' + j.total + '</span>'
@@ -1382,6 +1389,13 @@ document.addEventListener('click', async e => {
   const job = e.target.closest('[data-job]');
   if(job){
     try{ await api('/api/jobs/dismiss?id=' + job.dataset.job, {method:'POST'}); }catch(err){}
+    poll();
+    return;
+  }
+  const jobcancel = e.target.closest('[data-jobcancel]');
+  if(jobcancel){
+    if(!confirm('确定取消这个任务？已连通的出口会保留。')) return;
+    try{ await api('/api/jobs/cancel?id=' + jobcancel.dataset.jobcancel, {method:'POST'}); }catch(err){}
     poll();
     return;
   }

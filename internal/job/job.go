@@ -23,6 +23,9 @@ type Job struct {
 	steps   []*JobStep
 	started time.Time
 	ended   time.Time
+	// cancelCh 关闭时表示用户取消，runProvision 循环会检查
+	cancelCh chan struct{}
+	cancelOnce sync.Once
 }
 
 // JobView 是 Job 的只读快照，用于返回给界面。
@@ -53,6 +56,11 @@ func (j *Job) Set(i int, status, detail string) {
 func (j *Job) Finish() {
 	j.mu.Lock()
 	defer j.mu.Unlock()
+	// 已取消的保持 cancelled，不覆盖成 done
+	if j.status == "cancelled" {
+		j.ended = time.Now()
+		return
+	}
 	j.status = "done"
 	for _, s := range j.steps {
 		if s.Status == "failed" {
@@ -95,6 +103,7 @@ func (s *JobStore) New(summary string, labels []string) *Job {
 	j := &Job{
 		id: hex.EncodeToString(buf), summary: summary,
 		status: "running", started: time.Now(),
+		cancelCh: make(chan struct{}),
 	}
 	for _, l := range labels {
 		j.steps = append(j.steps, &JobStep{Label: l, Status: "pending"})
@@ -134,4 +143,43 @@ func (s *JobStore) Dismiss(id string) {
 		}
 	}
 	s.jobs = kept
+}
+
+// Cancel 取消一个运行中的作业。已结束的取消无效果。
+func (s *JobStore) Cancel(id string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, j := range s.jobs {
+		if j.id == id {
+			j.mu.Lock()
+			running := j.status == "running"
+			j.mu.Unlock()
+			if running {
+				j.cancelOnce.Do(func() { close(j.cancelCh) })
+				return true
+			}
+			return false
+		}
+	}
+	return false
+}
+
+// Cancelled 返回作业是否被取消（供 runProvision 循环检查）。
+func (j *Job) Cancelled() bool {
+	select {
+	case <-j.cancelCh:
+		return true
+	default:
+		return false
+	}
+}
+
+// Cancel 标记作业为已取消。
+func (j *Job) Cancel() {
+	j.cancelOnce.Do(func() { close(j.cancelCh) })
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if j.status == "running" {
+		j.status = "cancelled"
+	}
 }

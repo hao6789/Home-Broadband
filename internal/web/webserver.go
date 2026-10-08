@@ -13,7 +13,10 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 // webServer 管理 HTTP 监听，支持在运行时切换端口/监听地址而不重启进程。
@@ -25,6 +28,8 @@ type webServer struct {
 	ln   net.Listener
 	srv  *http.Server
 	addr string
+	// reloadMu 串行化 reload：防两次 ApplyWebSettings 并发时第二个关掉第一个刚绑好的监听
+	reloadMu sync.Mutex
 }
 
 func NewWebServer(h http.Handler) *webServer {
@@ -58,13 +63,29 @@ func (s *webServer) Serve() error {
 
 // reload 切换到新的监听地址。
 // 地址变了：先绑新、再关旧——新地址绑不上时旧监听不受影响。
-// 地址没变（比如 HTTP↔HTTPS 切换）：必须先关旧监听才能重绑同端口；
-// 证书已经在 ApplyWebSettings 里校验过，这里 bind 失败概率极低。
+// 地址没变（比如 HTTP↔HTTPS 切换）：用 SO_REUSEPORT 先绑新监听，
+// 成功后再关旧的，避免"先关后绑"之间端口被抢导致面板失联。
 func (s *webServer) reload(cfg config.WebSettings) error {
+	s.reloadMu.Lock()
+	defer s.reloadMu.Unlock()
+
 	addr := cfg.ListenAddrString()
 
-	bindNew := func() (net.Listener, error) {
-		ln, err := net.Listen("tcp", addr)
+	bindNew := func(reusePort bool) (net.Listener, error) {
+		var lc net.ListenConfig
+		if reusePort {
+			lc.Control = func(network, address string, c syscall.RawConn) error {
+				var opErr error
+				err := c.Control(func(fd uintptr) {
+					opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+				})
+				if err != nil {
+					return err
+				}
+				return opErr
+			}
+		}
+		ln, err := lc.Listen(context.Background(), "tcp", addr)
 		if err != nil {
 			return nil, err
 		}
@@ -94,10 +115,35 @@ func (s *webServer) reload(cfg config.WebSettings) error {
 				return fmt.Errorf("证书加载失败：%v", err)
 			}
 		}
-		// 再停旧监听：不再接受新连接、端口释放；在途请求由下面的 Shutdown 优雅收尾。
+		// SO_REUSEPORT 允许新旧监听同时绑同端口：先绑新，成了再关旧
+		ln, err := bindNew(true)
+		if err != nil {
+			return fmt.Errorf("无法监听 %s：%w", addr, err)
+		}
 		_ = oldLn.Close()
+		s.mu.Lock()
+		srv := &http.Server{Handler: s.handler}
+		s.srv = srv
+		s.ln = ln
+		s.addr = addr
+		s.mu.Unlock()
+		go func() {
+			if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
+				log.Printf("HTTP 监听 %s 退出: %v", addr, err)
+			}
+		}()
+		if oldSrv != nil {
+			go func() {
+				time.Sleep(1 * time.Second)
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				_ = oldSrv.Shutdown(ctx)
+			}()
+		}
+		return nil
 	}
-	ln, err := bindNew()
+
+	ln, err := bindNew(false)
 	if err != nil {
 		return fmt.Errorf("无法监听 %s：%w", addr, err)
 	}

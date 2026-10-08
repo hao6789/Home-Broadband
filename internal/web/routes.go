@@ -20,6 +20,7 @@ func RegisterRoutes(mux *http.ServeMux, mgr *tunnel.Manager, workDir string, aut
 	mux.HandleFunc("/api/provision", apiProvision(mgr))
 	mux.HandleFunc("/api/jobs", apiJobs(mgr))
 	mux.HandleFunc("/api/jobs/dismiss", apiJobDismiss(mgr))
+	mux.HandleFunc("/api/jobs/cancel", apiJobCancel(mgr))
 	mux.HandleFunc("/api/exits", apiExits(mgr))
 	mux.HandleFunc("/api/xui", apiXUIStatus)
 	mux.HandleFunc("/api/xui/inbounds", apiXUIInbounds(mgr))

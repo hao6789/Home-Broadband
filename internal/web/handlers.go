@@ -341,6 +341,16 @@ func apiJobDismiss(m *tunnel.Manager) http.HandlerFunc {
 	}
 }
 
+func apiJobCancel(m *tunnel.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if m.Jobs.Cancel(r.URL.Query().Get("id")) {
+			writeJSON(w, http.StatusOK, map[string]string{"ok": "已取消"})
+		} else {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "作业不存在或已结束"})
+		}
+	}
+}
+
 // apiXUIStatus 报告当前的节点链接后端：接管的 3x-ui，或 home-broadband 自己跑的 Xray。
 func apiXUIStatus(w http.ResponseWriter, r *http.Request) {
 	p, err := panel.OpenPanel()

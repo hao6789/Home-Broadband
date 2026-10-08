@@ -70,6 +70,11 @@ func (m *Manager) runProvision(job *job.Job, picks []vpngate.Node, templateID in
 	started := make([]*Tunnel, len(picks))
 
 	for i, node := range picks {
+		// 检查取消：用户点了取消就不再起新隧道
+		if job.Cancelled() {
+			job.Set(i, "failed", "已取消")
+			continue
+		}
 		t, err := m.Start(node)
 		if err != nil {
 			job.Set(i, "failed", err.Error())
@@ -90,6 +95,11 @@ func (m *Manager) runProvision(job *job.Job, picks []vpngate.Node, templateID in
 		}(i, t)
 	}
 	wg.Wait()
+
+	// 取消后跳过建入站
+	if job.Cancelled() {
+		return
+	}
 
 	if templateID <= 0 {
 		return

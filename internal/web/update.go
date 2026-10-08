@@ -304,6 +304,8 @@ func sha256File(path string) (string, error) {
 }
 
 // extractBinary 从 tar.gz 里取出指定文件名的成员写到 dst。
+// 严格校验：只要常规文件，拒绝目录/软链接/设备文件；
+// 同名成员有多个时取路径最短的（顶层），避免恶意 tar 靠排序决定装哪个。
 func extractBinary(tarGz, member, dst string) error {
 	f, err := os.Open(tarGz)
 	if err != nil {
@@ -316,10 +318,12 @@ func extractBinary(tarGz, member, dst string) error {
 	}
 	defer gz.Close()
 	tr := tar.NewReader(gz)
+	var best *tar.Header
+	var bestSize int64 = -1
 	for {
 		hd, err := tr.Next()
 		if err == io.EOF {
-			return fmt.Errorf("包里没有 %s", member)
+			break
 		}
 		if err != nil {
 			return err
@@ -327,15 +331,55 @@ func extractBinary(tarGz, member, dst string) error {
 		if filepath.Base(hd.Name) != member {
 			continue
 		}
-		out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+		// 只要常规文件
+		if hd.Typeflag != tar.TypeReg && hd.Typeflag != tar.TypeRegA {
+			continue
+		}
+		// 取路径最短的（顶层优先）
+		if best == nil || int64(len(hd.Name)) < bestSize {
+			best = hd
+			bestSize = int64(len(hd.Name))
+		}
+		// 把内容读掉才能 Next() 继续
+		if _, err := io.Copy(io.Discard, tr); err != nil {
+			return err
+		}
+	}
+	if best == nil {
+		return fmt.Errorf("包里没有 %s", member)
+	}
+	// 重新打开 tar 读出选中的成员（前面已经消费掉了）
+	if _, err := f.Seek(0, io.SeekStart); err != nil {
+		return err
+	}
+	gz2, err := gzip.NewReader(f)
+	if err != nil {
+		return err
+	}
+	defer gz2.Close()
+	tr2 := tar.NewReader(gz2)
+	for {
+		hd, err := tr2.Next()
+		if err == io.EOF {
+			return fmt.Errorf("包里没有 %s", member)
+		}
 		if err != nil {
 			return err
 		}
-		defer out.Close()
-		if _, err := io.Copy(out, tr); err != nil {
+		if hd.Name == best.Name {
+			out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
+			if err != nil {
+				return err
+			}
+			defer out.Close()
+			if _, err := io.Copy(out, tr2); err != nil {
+				return err
+			}
+			return nil
+		}
+		if _, err := io.Copy(io.Discard, tr2); err != nil {
 			return err
 		}
-		return nil
 	}
 }
 
