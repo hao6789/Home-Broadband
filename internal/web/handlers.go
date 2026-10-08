@@ -72,7 +72,9 @@ func apiTunnels(m *tunnel.Manager) http.HandlerFunc {
 
 func apiStart(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		host := r.URL.Query().Get("host")
 		if host == "" {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "缺少 host 参数"})
@@ -96,7 +98,9 @@ func apiStart(m *tunnel.Manager) http.HandlerFunc {
 
 func apiStop(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		slot, err := strconv.Atoi(r.URL.Query().Get("slot"))
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "slot 参数无效"})
@@ -112,7 +116,9 @@ func apiStop(m *tunnel.Manager) http.HandlerFunc {
 
 func apiRefresh(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		n, err := m.RefreshNodes()
 		if err != nil {
 			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
@@ -125,7 +131,9 @@ func apiRefresh(m *tunnel.Manager) http.HandlerFunc {
 // apiSwap 就地把一个出口换到别的节点，端口不变。
 func apiSwap(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		slot, err := strconv.Atoi(r.URL.Query().Get("slot"))
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "slot 参数无效"})
@@ -280,7 +288,9 @@ func apiUpdateCheck(w http.ResponseWriter, r *http.Request) {
 
 // apiUpdateApply 下载最新版替换二进制并重启服务。成功后进程会被拉起成新版本。
 func apiUpdateApply(w http.ResponseWriter, r *http.Request) {
-	if !requirePost(w, r) { return }
+	if !requirePost(w, r) {
+		return
+	}
 	st, err := checkUpdate()
 	if err != nil {
 		writeServerError(w, http.StatusBadGateway, err, "检查更新失败，请稍后重试")
@@ -303,7 +313,9 @@ func apiUpdateApply(w http.ResponseWriter, r *http.Request) {
 // apiRestart 重启面板服务：先把响应发回去，再延迟触发 restartSelf，
 // 复用更新流程的重启路径（systemd/openrc/自我 exec）。
 func apiRestart(w http.ResponseWriter, r *http.Request) {
-	if !requirePost(w, r) { return }
+	if !requirePost(w, r) {
+		return
+	}
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "正在重启"})
 	go func() {
 		time.Sleep(800 * time.Millisecond)
@@ -321,7 +333,9 @@ func apiExits(m *tunnel.Manager) http.HandlerFunc {
 // apiProvision 接收"开 N 个某地区的出口"这个意图，返回作业 id 供轮询。
 func apiProvision(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		q := r.URL.Query()
 		count, err := strconv.Atoi(q.Get("count"))
 		if err != nil || count < 1 || count > 50 {
@@ -355,7 +369,9 @@ func apiJobs(m *tunnel.Manager) http.HandlerFunc {
 
 func apiJobDismiss(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		m.Jobs.Dismiss(r.URL.Query().Get("id"))
 		writeJSON(w, http.StatusOK, map[string]string{"ok": "已关闭"})
 	}
@@ -363,7 +379,9 @@ func apiJobDismiss(m *tunnel.Manager) http.HandlerFunc {
 
 func apiJobCancel(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		if m.Jobs.Cancel(r.URL.Query().Get("id")) {
 			writeJSON(w, http.StatusOK, map[string]string{"ok": "已取消"})
 		} else {
@@ -462,7 +480,9 @@ func liveHosts(m *tunnel.Manager) map[string]bool {
 // apiXUIBind 把某个入站绑定到某条隧道，slot=0 表示解绑。
 func apiXUIBind(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		tag := r.URL.Query().Get("tag")
 		if tag == "" {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "缺少 tag 参数"})
@@ -502,7 +522,9 @@ func apiXUIBind(m *tunnel.Manager) http.HandlerFunc {
 // apiXUIClone 以某个入站为模板，为所有已连通的隧道各复制一个入站并绑好出口。
 func apiXUIClone(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		id, err := strconv.Atoi(r.URL.Query().Get("id"))
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "id 参数无效"})
@@ -623,7 +645,7 @@ func apiXUILinks(w http.ResponseWriter, r *http.Request) {
 	links, err := x.InboundLinks(ids, host)
 	if err != nil {
 		log.Printf("API 502: %v", err)
-			writeJSON(w, http.StatusBadGateway, map[string]any{"error": "获取链接失败", "links": links})
+		writeJSON(w, http.StatusBadGateway, map[string]any{"error": "获取链接失败", "links": links})
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"links": links})
@@ -632,7 +654,9 @@ func apiXUILinks(w http.ResponseWriter, r *http.Request) {
 // apiXUIDelete 删除入站。停掉出口后它的入站会留下来，用户需要一个清理入口。
 func apiXUIDelete(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		var ids []int
 		for _, part := range strings.Split(r.URL.Query().Get("ids"), ",") {
 			if n, err := strconv.Atoi(strings.TrimSpace(part)); err == nil {
@@ -663,7 +687,9 @@ func apiXUIDelete(m *tunnel.Manager) http.HandlerFunc {
 // apiInboundUpdate 改入站的端口、备注与启停。两种后端都支持。
 func apiInboundUpdate(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		p, err := panel.OpenPanel()
 		if err != nil {
 			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
@@ -761,7 +787,9 @@ func apiClientReset(m *tunnel.Manager) http.HandlerFunc {
 
 func apiInboundCreate(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
+		if !requirePost(w, r) {
+			return
+		}
 		p, err := panel.OpenPanel()
 		if err != nil {
 			writeServerError(w, http.StatusBadGateway, err, "上游服务异常，请稍后重试")
