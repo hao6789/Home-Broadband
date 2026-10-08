@@ -149,6 +149,9 @@ func apiRegions(m *tunnel.Manager) http.HandlerFunc {
 // apiCred 改一个出口的 SOCKS5 用户名口令。两个参数都留空表示随机重置。
 func apiCred(m *tunnel.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !requirePost(w, r) {
+			return
+		}
 		q := r.URL.Query()
 		slot, err := strconv.Atoi(q.Get("slot"))
 		if err != nil {
@@ -277,10 +280,6 @@ func apiUpdateCheck(w http.ResponseWriter, r *http.Request) {
 // apiUpdateApply 下载最新版替换二进制并重启服务。成功后进程会被拉起成新版本。
 func apiUpdateApply(w http.ResponseWriter, r *http.Request) {
 	if !requirePost(w, r) { return }
-	if r.Method != http.MethodPost {
-		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "用 POST"})
-		return
-	}
 	st, err := checkUpdate()
 	if err != nil {
 		writeServerError(w, http.StatusBadGateway, err, "检查更新失败，请稍后重试")
@@ -304,10 +303,6 @@ func apiUpdateApply(w http.ResponseWriter, r *http.Request) {
 // 复用更新流程的重启路径（systemd/openrc/自我 exec）。
 func apiRestart(w http.ResponseWriter, r *http.Request) {
 	if !requirePost(w, r) { return }
-	if r.Method != http.MethodPost {
-		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "用 POST"})
-		return
-	}
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "正在重启"})
 	go func() {
 		time.Sleep(800 * time.Millisecond)
@@ -405,7 +400,6 @@ func apiXUIStatus(w http.ResponseWriter, r *http.Request) {
 // GET 返回当前模式与本机可选模式；POST {"mode":"..."} 运行时切换，空 mode = 恢复自动探测。
 func apiPanelMode(m *tunnel.Manager, workDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if !requirePost(w, r) { return }
 		if r.Method == http.MethodPost {
 			var in struct {
 				Mode string `json:"mode"`

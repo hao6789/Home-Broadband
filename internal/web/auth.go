@@ -98,6 +98,9 @@ func (a *Auth) SetPassword(pw string) error {
 
 // Logout 销毁当前会话。
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r) {
+		return
+	}
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		_ = a.store.DeleteSession(c.Value)
 	}
