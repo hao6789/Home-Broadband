@@ -2,10 +2,16 @@ package job
 
 import (
 	"crypto/rand"
+	"encoding/binary"
 	"encoding/hex"
+	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 )
+
+// jobIDFallback 是 crypto/rand 失败时的备用 id 计数器
+var jobIDFallback uint64
 
 // JobStep 是作业里的一个目标。界面按步骤逐条显示，用户能看清是哪一个卡住了。
 type JobStep struct {
@@ -99,7 +105,11 @@ const keepJobs = 8
 
 func (s *JobStore) New(summary string, labels []string) *Job {
 	buf := make([]byte, 6)
-	_, _ = rand.Read(buf)
+	// crypto/rand 失败极罕见；失败时用时间戳+计数器保证唯一性，不吞错误
+	if _, err := rand.Read(buf); err != nil {
+		log.Printf("crypto/rand 失败，用备用 id 生成: %v", err)
+		binary.LittleEndian.PutUint64(buf[:6], uint64(time.Now().UnixNano())+atomic.AddUint64(&jobIDFallback, 1))
+	}
 	j := &Job{
 		id: hex.EncodeToString(buf), summary: summary,
 		status: "running", started: time.Now(),

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"home-broadband/internal/tunnel"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -323,7 +324,10 @@ func (p *xrayProc) stop() {
 func (p *xrayProc) pidPath() string { return filepath.Join(p.dir, "xray.pid") }
 
 func (p *xrayProc) writePID(pid int) {
-	_ = os.WriteFile(p.pidPath(), []byte(strconv.Itoa(pid)), 0600)
+	// pid 文件仅用于孤儿回收，写失败不中断启动，但要记日志
+	if err := os.WriteFile(p.pidPath(), []byte(strconv.Itoa(pid)), 0600); err != nil {
+		log.Printf("写 xray pid 文件失败: %v", err)
+	}
 }
 
 // reapOrphan 清掉上次遗留的 Xray。
