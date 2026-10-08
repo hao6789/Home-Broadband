@@ -214,10 +214,17 @@ func applyUpdateWithRelease(rel *releaseInfo) error {
 	if err := copyFileMode(newBin, staged, 0755); err != nil {
 		return fmt.Errorf("写入新版本失败: %w", err)
 	}
-	// fsync 确保数据落盘后再 rename，掉电也不丢
+	// fsync 确保数据落盘后再 rename，掉电也不丢；失败则中断，fail-closed
 	if f, err := os.Open(staged); err == nil {
-		_ = f.Sync()
+		if serr := f.Sync(); serr != nil {
+			f.Close()
+			os.Remove(staged)
+			return fmt.Errorf("新版本落盘失败，更新已中止: %w", serr)
+		}
 		f.Close()
+	} else {
+		os.Remove(staged)
+		return fmt.Errorf("无法打开暂存文件做落盘确认: %w", err)
 	}
 	// 备份旧二进制，出问题可手动回滚；备份失败必须中断，否则新二进制落盘后旧版无处可回
 	if err := os.Rename(self, self+".bak"); err != nil {

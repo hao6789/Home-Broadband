@@ -72,7 +72,7 @@ func subFullURL(r *http.Request, tok string) string {
 func apiSub(w http.ResponseWriter, r *http.Request) {
 	tok, err := subToken()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeServerError(w, http.StatusInternalServerError, err, "获取订阅令牌失败")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{
@@ -90,7 +90,7 @@ func apiSubReset(w http.ResponseWriter, r *http.Request) {
 	}
 	tok, err := resetSubToken()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeServerError(w, http.StatusInternalServerError, err, "重置订阅令牌失败")
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]string{

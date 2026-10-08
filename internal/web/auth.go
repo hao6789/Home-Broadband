@@ -232,7 +232,7 @@ func (a *Auth) handleLogin(w http.ResponseWriter, r *http.Request) {
 	a.clearFails(ip)
 	tok, err := a.issue()
 	if err != nil {
-		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		writeServerError(w, http.StatusInternalServerError, err, "签发会话失败")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{

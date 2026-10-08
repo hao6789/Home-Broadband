@@ -111,7 +111,9 @@ func selfSignedCert(dir, serverName string) (certFile, keyFile string, err error
 		return "", "", fmt.Errorf("生成自签证书失败: %s", trimOutput(out))
 	}
 	// openssl 写私钥不保证 0600，显式收紧（umask 0022 下会是 0644）
-	_ = os.Chmod(keyFile, 0600)
+	if err := os.Chmod(keyFile, 0600); err != nil {
+		return "", "", fmt.Errorf("收紧私钥权限失败: %w", err)
+	}
 	return certFile, keyFile, nil
 }
 
