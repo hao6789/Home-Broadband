@@ -7,6 +7,12 @@ SERVICE=home-broadband
 BIN=/usr/local/bin/home-broadband
 REPO="${REPO:-hao6789/Home-Broadband}"
 
+# WORK_DIR 校验：非空、绝对路径、不含换行（do_uninstall 有 rm -rf，必须拦）
+if [[ -z $WORK_DIR || $WORK_DIR != /* || $WORK_DIR == *$'\n'* ]]; then
+  echo "WORK_DIR 不合法（须为非空绝对路径且不含换行）: ${WORK_DIR}" >&2
+  exit 1
+fi
+
 G='\033[0;32m'; R='\033[0;31m'; Y='\033[0;33m'; B='\033[0;36m'; D='\033[2m'; N='\033[0m'
 
 # ── config.json 读写：配置统一后唯一的权威来源 ──────────
@@ -387,6 +393,10 @@ cert_apply() {
     read -rp "  域名: " domain
   fi
   [[ -z $domain ]] && { echo "  已取消"; return; }
+  # domain 拼进 mkdir 路径，严格校验防止路径逃逸（与 cert_revoke 一致）
+  if [[ $domain == *".."* || $domain == /* || $domain == *~* || ! $domain =~ ^[A-Za-z0-9.-]+$ ]]; then
+    echo -e "  ${R}域名不合法${N}"; return
+  fi
 
   # 预检：域名解析到本机？（getent 在 Alpine/musl 下可能没有，失败就跳过这项检查）
   local myip dip
@@ -592,7 +602,12 @@ do_update() {
   trap 'rm -rf "$tmp"; svc_start >/dev/null 2>&1; echo -e "  ${Y}更新被中断，已恢复服务${N}"' INT TERM
   # 备份旧二进制，出问题可手动恢复
   [[ -x $BIN ]] && cp -f "$BIN" "$BIN.bak"
-  install -m 755 "$tmp/home-broadband" "$BIN"
+  if ! install -m 755 "$tmp/home-broadband" "$BIN"; then
+    echo -e "  ${R}安装新二进制失败${N}"
+    svc_start
+    trap - INT TERM; trap - RETURN; rm -rf "$tmp"
+    return 1
+  fi
   migrate_port_to_settings
   svc_start
   trap - INT TERM

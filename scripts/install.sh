@@ -66,7 +66,9 @@ svc_install() {
     # 端口不写进服务文件：它由 ${WORK_DIR}/config.json 决定（见 seed_settings），
     # 两处都写会互相拽回旧值——界面改完重启失效，或 f 改完被配置覆盖。
     # 老版本模板里可能还带 -web，一并去掉。
-    sed "s#-web [0-9]* ##; s#-dir /var/lib/home-broadband#-dir ${WORK_DIR}#" deploy/home-broadband.service \
+    # WORK_DIR 转义 sed 特殊字符（& # \），防止自定义路径写坏服务文件
+    esc_dir=$(printf '%s' "$WORK_DIR" | sed 's/[#&\\/]/\\&/g')
+    sed "s#-web [0-9]* ##; s#-dir /var/lib/home-broadband#-dir ${esc_dir}#" deploy/home-broadband.service \
       > /etc/systemd/system/home-broadband.service
     systemctl daemon-reload
   else
@@ -158,8 +160,6 @@ install_pkgs() {
 }
 
 MGR=$(detect_mgr)
-# Debian/Ubuntu 的 iproute2 与 RHEL 系的 iproute 是同一个东西，名字不同
-[[ "$MGR" == "apt-get" ]] && iproute_pkg=iproute2 || iproute_pkg=iproute
 
 need_cmd=()
 for c in openvpn curl openssl tar iptables python3; do
@@ -175,7 +175,7 @@ if [[ ${#need_cmd[@]} -gt 0 ]]; then
   fi
   pkgs=()
   for c in "${need_cmd[@]}"; do
-    if [[ "$c" == "ip" ]]; then pkgs+=("$iproute_pkg"); else pkgs+=("$(pkg_for "$c" "$MGR")"); fi
+    pkgs+=("$(pkg_for "$c" "$MGR")")
   done
   echo "      安装: ${pkgs[*]}"
   install_pkgs "$MGR" "${pkgs[@]}" || {
