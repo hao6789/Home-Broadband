@@ -613,6 +613,10 @@ func apiXUIDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	host := r.URL.Query().Get("host")
+	if len(host) > 253 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "host 过长"})
+		return
+	}
 	if host == "" {
 		host = publicHost(r)
 	}
@@ -650,7 +654,12 @@ func apiXUILinks(w http.ResponseWriter, r *http.Request) {
 
 	var ids []int
 	if raw := r.URL.Query().Get("ids"); raw != "" {
-		for _, part := range strings.Split(raw, ",") {
+		parts := strings.Split(raw, ",")
+		if len(parts) > 100 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "一次最多操作100个"})
+			return
+		}
+		for _, part := range parts {
 			if n, err := strconv.Atoi(strings.TrimSpace(part)); err == nil {
 				ids = append(ids, n)
 			}
@@ -671,6 +680,10 @@ func apiXUILinks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	host := r.URL.Query().Get("host")
+	if len(host) > 253 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "host 过长"})
+		return
+	}
 	if host == "" {
 		host = publicHost(r)
 	}
@@ -690,7 +703,13 @@ func apiXUIDelete(m *tunnel.Manager) http.HandlerFunc {
 			return
 		}
 		var ids []int
-		for _, part := range strings.Split(r.URL.Query().Get("ids"), ",") {
+		parts := strings.Split(r.URL.Query().Get("ids"), ",")
+		// 限 100 个：防 DoS 放大（每个 id 都要调一次面板 API）
+		if len(parts) > 100 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "一次最多操作100个"})
+			return
+		}
+		for _, part := range parts {
 			if n, err := strconv.Atoi(strings.TrimSpace(part)); err == nil {
 				ids = append(ids, n)
 			}
