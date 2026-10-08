@@ -272,6 +272,8 @@ type xrayProc struct {
 // restart 用当前配置重启 xray。配置已在调用前写好并校验过。
 func (p *xrayProc) restart(cfgPath string) error {
 	p.stop()
+	// SIGKILL 后给 OS 一点时间回收端口，避免新进程 bind 撞上 address already in use
+	time.Sleep(300 * time.Millisecond)
 
 	logPath := filepath.Join(p.dir, "xray.log")
 	f, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
@@ -290,13 +292,18 @@ func (p *xrayProc) restart(cfgPath string) error {
 		return fmt.Errorf("启动 Xray 失败: %w", err)
 	}
 	p.cmd, p.logf = cmd, f
-	go cmd.Wait() // 回收子进程，避免僵尸
+	done := make(chan struct{})
+	go func() {
+		cmd.Wait() // 回收子进程，避免僵尸
+		close(done)
+	}()
 	p.writePID(cmd.Process.Pid)
 
 	// 起得来但立刻退出的情况要能被发现，否则界面会显示成功而实际不通
-	time.Sleep(400 * time.Millisecond)
-	if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+	select {
+	case <-done:
 		return fmt.Errorf("Xray 启动后立刻退出，详见 %s", logPath)
+	case <-time.After(400 * time.Millisecond):
 	}
 	return nil
 }

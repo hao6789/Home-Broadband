@@ -121,10 +121,14 @@ func fetchNodesFrom(url, key string, timeout time.Duration) ([]Node, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("拉取节点列表失败: HTTP %d", resp.StatusCode)
 	}
-	// 限 32MB，防恶意服务端返回超大 body 撑爆内存
-	raw, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
+	// 限 32MB，防恶意服务端返回超大 body 撑爆内存；
+	// 超限时报错而非静默截断，避免半截 CSV 被当成正常数据解析
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20+1))
 	if err != nil {
 		return nil, fmt.Errorf("读取节点列表失败: %w", err)
+	}
+	if len(raw) > 32<<20 {
+		return nil, fmt.Errorf("节点列表超过 32MB，拒绝解析")
 	}
 	return parseNodeCSV(string(raw))
 }
@@ -156,7 +160,7 @@ func parseNodeCSV(body string) ([]Node, error) {
 	for i, name := range header {
 		idx[strings.TrimSpace(name)] = i
 	}
-	need := []string{"HostName", "IP", "CountryLong", "CountryShort", "Ping", "Speed", "OpenVPN_ConfigData_Base64"}
+	need := []string{"HostName", "IP", "CountryLong", "CountryShort", "Ping", "Speed", "OpenVPN_ConfigData_Base64", "NumVpnSessions"}
 	for _, k := range need {
 		if _, ok := idx[k]; !ok {
 			return nil, fmt.Errorf("节点列表缺少字段 %s", k)
