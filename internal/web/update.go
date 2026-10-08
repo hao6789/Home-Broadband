@@ -219,13 +219,18 @@ func applyUpdateWithRelease(rel *releaseInfo) error {
 		_ = f.Sync()
 		f.Close()
 	}
-	// 备份旧二进制，出问题可手动回滚
-	_ = os.Rename(self, self+".bak")
+	// 备份旧二进制，出问题可手动回滚；备份失败必须中断，否则新二进制落盘后旧版无处可回
+	if err := os.Rename(self, self+".bak"); err != nil {
+		os.Remove(staged)
+		return fmt.Errorf("备份旧二进制失败，更新已中止: %w", err)
+	}
 	if err := os.Rename(staged, self); err != nil {
 		os.Remove(staged)
-		// 尝试恢复备份
-		_ = os.Rename(self+".bak", self)
-		return fmt.Errorf("替换二进制失败: %w", err)
+		// 尝试恢复备份；恢复失败要明确报错，不能静默
+		if rerr := os.Rename(self+".bak", self); rerr != nil {
+			return fmt.Errorf("替换二进制失败且回滚备份也失败，请手动从 %s.bak 恢复: 替换错=%v 回滚错=%v", self, err, rerr)
+		}
+		return fmt.Errorf("替换二进制失败，已回滚: %w", err)
 	}
 
 	// 让 init 系统重启我们，拉起新版本。异步触发并延迟一下，
