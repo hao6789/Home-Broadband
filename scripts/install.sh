@@ -215,6 +215,20 @@ else
     echo "      也可以 clone 仓库后在源码目录运行本脚本" >&2
     exit 1
   fi
+  # 校验 SHA-256（与 h.sh do_update 对齐，防篡改/损坏）
+  if curl -fsSL "https://github.com/${REPO}/releases/latest/download/checksums.txt" -o "$TMP/checksums.txt" 2>/dev/null; then
+    want=$(grep "home-broadband-linux-${GOARCH}.tar.gz" "$TMP/checksums.txt" | awk '{print $1}')
+    if [[ -n $want ]]; then
+      got=$(sha256sum "$TMP/pkg.tar.gz" | awk '{print $1}')
+      if [[ $got != "$want" ]]; then
+        echo "      SHA-256 校验失败，安装包可能被篡改" >&2
+        exit 1
+      fi
+      echo "      SHA-256 校验通过"
+    fi
+  else
+    echo "      警告: 无法下载 checksums.txt，跳过校验" >&2
+  fi
   tar xzf "$TMP/pkg.tar.gz" -C "$TMP" || { echo "解压安装包失败，可能是下载不完整" >&2; exit 1; }
   install -m 755 "$TMP/home-broadband" "$BIN"
   [[ -f deploy/home-broadband.service ]] || { mkdir -p deploy && cp "$TMP/deploy/home-broadband.service" deploy/; }

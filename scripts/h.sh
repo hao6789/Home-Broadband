@@ -627,11 +627,12 @@ do_uninstall() {
   svc_stop >/dev/null 2>&1
   svc_disable
   # 清掉残留的 netns 与 veth
-  for ns in $(ip netns list 2>/dev/null | awk '{print $1}' | grep '^hb[0-9]'); do
+  # 命名规则：默认实例 hb1/hb2…，自定义 WORK_DIR 时是 hb<4位hex>（如 hba3f2）
+  for ns in $(ip netns list 2>/dev/null | awk '{print $1}' | grep -E '^hb[0-9a-f]+$'); do
     ip netns del "$ns" 2>/dev/null
   done
   # ip -o 输出的 veth 名带 @ifN 后缀（如 hbv3@if12），要先 strip 掉再删
-  for l in $(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d@ -f1 | grep '^hbv[0-9]'); do
+  for l in $(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d@ -f1 | grep -E '^hbv[0-9a-f]+$'); do
     ip link del "$l" 2>/dev/null
   done
   # 删掉安装时加的 iptables FORWARD 规则（persist 的那份也清）

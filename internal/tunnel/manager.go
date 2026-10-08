@@ -1,6 +1,7 @@
 package tunnel
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os/exec"
@@ -198,6 +199,9 @@ func (m *Manager) bringUpPersist(t *Tunnel, notify bool, persist bool) {
 }
 
 // tryCandidates 走一轮候选节点，成功返回 true。失败不改 Status（留给调用方决定）。
+// errTunnelStopped 表示隧道在重连过程中被用户停止
+var errTunnelStopped = errors.New("隧道已被停止")
+
 func (m *Manager) tryCandidates(t *Tunnel, notify bool) bool {
 	// VPN Gate 是志愿者节点，列表里有相当比例已下线或满员（AUTH_FAILED），
 	// 连不上就顺着候选列表换下一个，不必让用户手动试。
@@ -250,16 +254,28 @@ func (m *Manager) tunnelActive(t *Tunnel) bool {
 
 // tryNode 尝试用当前节点把隧道拉起来。
 func (m *Manager) tryNode(t *Tunnel) error {
+	// 每步之间检查隧道是否还活跃：用户可能在重连中点了停止，
+	// 此时必须中断，否则会留下孤儿 OpenVPN 进程
 	if err := t.setupNetns(); err != nil {
 		return err
 	}
+	if !m.tunnelActive(t) {
+		return errTunnelStopped
+	}
 	if err := t.startOpenVPN(m.workDir); err != nil {
 		return err
+	}
+	if !m.tunnelActive(t) {
+		t.killOpenVPN()
+		return errTunnelStopped
 	}
 	if t.listener == nil {
 		if err := t.serve(); err != nil {
 			return err
 		}
+	}
+	if !m.tunnelActive(t) {
+		return errTunnelStopped
 	}
 	ip, err := t.probeExitIP()
 	if err != nil {

@@ -431,16 +431,23 @@ func (t *Tunnel) probeExitIP() (string, error) {
 
 // stop 停止这条隧道并清理它占用的所有资源。
 func (t *Tunnel) stop() {
+	t.killOpenVPN()
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.listener != nil {
 		t.listener.Close()
 		t.listener = nil
 	}
+	t.teardownNetns()
+	t.Status = "stopped"
+}
+
+// killOpenVPN 只杀 OpenVPN 进程，用于重连中途被停止时的清理
+func (t *Tunnel) killOpenVPN() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
 	if t.ovpn != nil && t.ovpn.Process != nil {
 		_ = t.ovpn.Process.Kill()
 		t.ovpn = nil
 	}
-	t.teardownNetns()
-	t.Status = "stopped"
 }
