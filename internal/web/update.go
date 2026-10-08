@@ -422,15 +422,17 @@ func copyFileMode(src, dst string, mode os.FileMode) error {
 // systemd / openrc 各一套；都不可用时退回直接自我 exec。
 func restartSelf() {
 	if hasCmd("systemctl") && dirExists("/run/systemd/system") {
-		// 用 Wait() 而非 Start()，让 systemctl 自身的失败也能被捕获
-		if err := exec.Command("systemctl", "restart", "home-broadband").Run(); err != nil {
-			log.Printf("更新后重启服务失败: %v，仍在运行旧版本，请手动 systemctl restart home-broadband", err)
+		// 用 Run() 而非 Start()，让 systemctl 自身的失败也能被捕获；接输出方便排障
+		cmd := exec.Command("systemctl", "restart", "home-broadband")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("更新后重启服务失败: %v 输出: %s，仍在运行旧版本，请手动 systemctl restart home-broadband", err, strings.TrimSpace(string(out)))
 		}
 		return
 	}
 	if hasCmd("rc-service") {
-		if err := exec.Command("rc-service", "home-broadband", "restart").Run(); err != nil {
-			log.Printf("更新后重启服务失败: %v，仍在运行旧版本，请手动 rc-service home-broadband restart", err)
+		cmd := exec.Command("rc-service", "home-broadband", "restart")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			log.Printf("更新后重启服务失败: %v 输出: %s，仍在运行旧版本，请手动 rc-service home-broadband restart", err, strings.TrimSpace(string(out)))
 		}
 		return
 	}

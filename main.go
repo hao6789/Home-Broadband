@@ -45,12 +45,12 @@ func main() {
 	if os.Geteuid() != 0 {
 		log.Fatal("需要 root 权限（要创建 netns 和改 iptables）")
 	}
-	if err := os.MkdirAll(*workDir, 0700); err != nil {
-		log.Fatalf("创建工作目录失败: %v", err)
-	}
-	// -dir 参数校验：与 install.sh 的 WORK_DIR 校验对齐
+	// -dir 参数校验：与 install.sh 的 WORK_DIR 校验对齐（先校验再建目录）
 	if *workDir == "" || (*workDir)[0] != '/' || len(*workDir) > 200 {
 		log.Fatal("-dir 须为非空绝对路径且不超过200字符")
+	}
+	if err := os.MkdirAll(*workDir, 0700); err != nil {
+		log.Fatalf("创建工作目录失败: %v", err)
 	}
 
 	// 打开统一配置存储（老版本散落的小文件会在这里一次性迁入 config.json）。

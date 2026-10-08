@@ -291,12 +291,30 @@ func apiSettings(auth *Auth, srv *webServer) http.HandlerFunc {
 }
 
 // apiUpdateCheck 问 GitHub 最新 release，回报当前/最新版本与更新内容。
+// 服务端节流：GitHub 未认证限 60 次/小时，5 分钟内重复请求直接返回缓存
+var updateCheckMu sync.Mutex
+var updateCheckLast time.Time
+var updateCheckCached *UpdateStatus
+
 func apiUpdateCheck(w http.ResponseWriter, r *http.Request) {
+	updateCheckMu.Lock()
+	if time.Since(updateCheckLast) < 5*time.Minute && updateCheckCached != nil {
+		cached := *updateCheckCached
+		updateCheckMu.Unlock()
+		writeJSON(w, http.StatusOK, cached)
+		return
+	}
+	updateCheckMu.Unlock()
+
 	st, err := checkUpdate()
 	if err != nil {
 		writeServerError(w, http.StatusBadGateway, err, "检查更新失败，请稍后重试")
 		return
 	}
+	updateCheckMu.Lock()
+	updateCheckLast = time.Now()
+	updateCheckCached = st
+	updateCheckMu.Unlock()
 	writeJSON(w, http.StatusOK, st)
 }
 

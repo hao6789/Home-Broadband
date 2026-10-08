@@ -85,7 +85,7 @@ svc_install() {
 name="home-broadband"
 description="home-broadband - VPN Gate 多出口网关"
 command="${BIN}"
-command_args="-dir ${WORK_DIR}"
+command_args="-dir \"${WORK_DIR}\""
 command_background=true
 pidfile="/run/home-broadband.pid"
 output_log="/var/log/home-broadband.log"
