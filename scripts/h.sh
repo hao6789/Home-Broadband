@@ -388,10 +388,14 @@ cert_apply() {
   fi
   [[ -z $domain ]] && { echo "  已取消"; return; }
 
-  # 预检：域名解析到本机？
+  # 预检：域名解析到本机？（getent 在 Alpine/musl 下可能没有，失败就跳过这项检查）
   local myip dip
   myip=$(curl -s --max-time 6 http://api.ipify.org 2>/dev/null)
-  dip=$(getent hosts "$domain" 2>/dev/null | awk '{print $1}' | head -1)
+  if command -v getent >/dev/null 2>&1; then
+    dip=$(getent hosts "$domain" 2>/dev/null | awk '{print $1}' | head -1)
+  elif command -v nslookup >/dev/null 2>&1; then
+    dip=$(nslookup "$domain" 2>/dev/null | awk '/^Address: /{print $2}' | tail -1)
+  fi
   if [[ -n $myip && -n $dip && $myip != "$dip" ]]; then
     echo -e "  ${Y}警告：域名解析到 ${dip}，本机 IP 是 ${myip}，签发会失败${N}"
     read -rp "  还是继续吗？[y/N]: " yes
@@ -553,9 +557,11 @@ do_update() {
   fi
 
   echo -e "\n  当前 $("$BIN" -version 2>/dev/null || echo '-')"
-  # 版本比较：已是最新就跳过，避免无意义的重装重启
-  latest_ver=$(curl -fsSL --max-time 15 "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null \
-    | python3 -c "import json,sys; print(json.load(sys.stdin).get('tag_name',''))" 2>/dev/null)
+  # 版本比较：已是最新就跳过，避免无意义的重装重启。
+  # 走 releases/latest/download 的 302 跳转取版本号，不调 api.github.com（未认证 60 次/小时限额）。
+  latest_ver=$(curl -fsSIL --max-time 15 -o /dev/null -w '%{redirect_url}' \
+    "https://github.com/${REPO}/releases/latest/download/home-broadband-linux-${goarch}.tar.gz" 2>/dev/null \
+    | sed -n 's#.*/releases/download/\([^/]*\)/.*#\1#p')
   cur_ver=$("$BIN" -version 2>/dev/null | awk '{print $2}')
   if [[ -n $latest_ver && -n $cur_ver && $cur_ver == "$latest_ver" ]]; then
     echo -e "  ${G}已是最新版 ${latest_ver}，无需更新${N}"; return
@@ -582,11 +588,14 @@ do_update() {
     echo -e "  ${R}解压失败${N}"; return
   fi
   svc_stop
+  # 从这里起若被 Ctrl-C 中断，保证把服务拉起来，不留停机状态
+  trap 'rm -rf "$tmp"; svc_start >/dev/null 2>&1; echo -e "  ${Y}更新被中断，已恢复服务${N}"' INT TERM
   # 备份旧二进制，出问题可手动恢复
   [[ -x $BIN ]] && cp -f "$BIN" "$BIN.bak"
   install -m 755 "$tmp/home-broadband" "$BIN"
   migrate_port_to_settings
   svc_start
+  trap - INT TERM
   trap - RETURN
   rm -rf "$tmp"
   echo -e "  ${G}已更新到 $("$BIN" -version 2>/dev/null)${N}"
@@ -604,13 +613,25 @@ do_uninstall() {
   for ns in $(ip netns list 2>/dev/null | awk '{print $1}' | grep '^hb[0-9]'); do
     ip netns del "$ns" 2>/dev/null
   done
-  for l in $(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | grep '^hbv[0-9]'); do
+  # ip -o 输出的 veth 名带 @ifN 后缀（如 hbv3@if12），要先 strip 掉再删
+  for l in $(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d@ -f1 | grep '^hbv[0-9]'); do
     ip link del "$l" 2>/dev/null
   done
-  rm -f "$UNIT" "$BIN" /usr/local/bin/h
+  # 删掉安装时加的 iptables FORWARD 规则（persist 的那份也清）
+  for dir in "-s" "-d"; do
+    while iptables -C FORWARD $dir 10.99.0.0/16 -j ACCEPT 2>/dev/null; do
+      iptables -D FORWARD $dir 10.99.0.0/16 -j ACCEPT 2>/dev/null
+    done
+  done
+  command -v netfilter-persistent >/dev/null && netfilter-persistent save >/dev/null 2>&1 || true
+  # 证书、IPv6 禁用配置、日志一并清理；acme.sh 本体保留（可能是 3x-ui 在用）
+  rm -rf "${CERT_BASE}"
+  rm -f /etc/sysctl.d/99-home-broadband-ipv6.conf /var/log/${SERVICE}.log
+  rm -f "$UNIT" "$BIN" "$BIN.bak" /usr/local/bin/h
   rm -rf "$WORK_DIR"
   svc_reload
   echo -e "  ${G}已卸载${N}"
+  echo -e "  ${D}注意：/etc/sysctl.conf 里的 net.ipv4.ip_forward=1 未动（系统级改动，留着无害）${N}"
   exit 0
 }
 

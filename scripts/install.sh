@@ -93,7 +93,13 @@ INITEOF
 
 svc_enable_start() {
   if [[ "$INIT_SYS" == systemd ]]; then
-    systemctl enable --now home-broadband
+    systemctl enable home-broadband >/dev/null 2>&1 || true
+    # enable --now 不会重启已在跑的旧进程；重装后必须 restart 才能换上新二进制
+    if systemctl is-active --quiet home-broadband 2>/dev/null; then
+      systemctl restart home-broadband
+    else
+      systemctl start home-broadband
+    fi
   else
     rc-update add home-broadband default >/dev/null 2>&1 || true
     rc-service home-broadband restart
@@ -189,7 +195,11 @@ esac
 
 if [[ -f main.go ]] && command -v go >/dev/null; then
   echo "      从源码编译"
-  go build -trimpath -ldflags "-s -w" -o "$BIN" .
+  # 先编到临时文件再 install：直接 -o 到 $BIN 时若旧进程在跑会 ETXTBSY
+  TMP_BUILD=$(mktemp -d)
+  trap 'rm -rf "$TMP" "$XT" "$TMP_BUILD"' EXIT
+  go build -trimpath -ldflags "-s -w" -o "$TMP_BUILD/home-broadband" .
+  install -m 755 "$TMP_BUILD/home-broadband" "$BIN"
 else
   echo "      下载预编译版本 (${GOARCH})"
   TMP=$(mktemp -d)
@@ -256,6 +266,16 @@ if ! iptables -C FORWARD -d 10.99.0.0/16 -j ACCEPT 2>/dev/null; then
   iptables -I FORWARD 1 -d 10.99.0.0/16 -j ACCEPT
 fi
 command -v netfilter-persistent >/dev/null && netfilter-persistent save >/dev/null 2>&1 || true
+# RHEL 系用 iptables-services 持久化；都没有就告警，重启后规则会丢
+if ! command -v netfilter-persistent >/dev/null 2>&1; then
+  if command -v service >/dev/null 2>&1 && service iptables save >/dev/null 2>&1; then
+    : # RHEL/CentOS 已保存
+  elif [[ -d /etc/iptables ]]; then
+    iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
+  else
+    echo "      警告：本机无 iptables 持久化工具，重启后 FORWARD 规则会丢失" >&2
+  fi
+fi
 
 echo "[5/6] 安装服务"
 # 管理菜单
@@ -283,25 +303,26 @@ svc_is_active && echo "      服务运行中（${INIT_SYS}）" || {
 # 口令、访问路径、端口都在 config.json 里（配置统一后不再写散文件）。
 # 等 home-broadband 首次启动写出来：光文件存在不够，
 # 口令和路径是程序启动后才生成的，得等到它们非空。
+# 路径走 sys.argv 传参，不拼进单引号（WORK_DIR 含引号也不炸）。
 BP=""; PW=""
 for _ in $(seq 1 30); do
   [[ -s "${WORK_DIR}/config.json" ]] || { sleep 1; continue; }
-  BP=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('basepath',''))" 2>/dev/null)
-  PW=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('password',''))" 2>/dev/null)
+  BP=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('basepath',''))" "${WORK_DIR}/config.json" 2>/dev/null)
+  PW=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('password',''))" "${WORK_DIR}/config.json" 2>/dev/null)
   [[ -n "$BP" && -n "$PW" ]] && break
   sleep 1
 done
 
 IP=$(curl -s --max-time 8 http://api.ipify.org || echo "<本机IP>")
 # 用 python3 从 config.json 里取，免得再被散文件改名搞乱
-WEB_PORT=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('web',{}).get('port',''))" 2>/dev/null)
+WEB_PORT=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('web',{}).get('port',''))" "${WORK_DIR}/config.json" 2>/dev/null)
 [[ -n "$WEB_PORT" ]] || WEB_PORT=8899
 echo
 echo "  管理界面  http://${IP}:${WEB_PORT}${BP}/"
 echo "  访问口令  ${PW:-见 ${WORK_DIR}/config.json 的 password 字段}"
 echo
 echo "  路径和口令都是随机生成的，存在 ${WORK_DIR}/config.json 里："
-echo "    python3 -c \"import json; d=json.load(open('${WORK_DIR}/config.json')); print(d['basepath'], d['password'])\""
+echo "    python3 -c \"import json,sys; d=json.load(open(sys.argv[1])); print(d['basepath'], d['password'])\" \"${WORK_DIR}/config.json\""
 echo
 echo "  输入 h 打开管理菜单"
 echo
