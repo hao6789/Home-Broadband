@@ -101,12 +101,13 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	if c, err := r.Cookie(sessionCookie); err == nil {
 		_ = a.store.DeleteSession(c.Value)
 	}
-	// 清掉浏览器里的 cookie
+	// 清掉浏览器里的 cookie（Secure 与登录时保持一致，否则严格实现可能清不掉）
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    "",
 		Path:     "/",
 		HttpOnly: true,
+		Secure:   r.TLS != nil,
 		MaxAge:   -1,
 	})
 	writeJSON(w, http.StatusOK, map[string]string{"ok": "已退出"})

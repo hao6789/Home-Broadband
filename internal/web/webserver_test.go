@@ -70,3 +70,29 @@ func freePort(t *testing.T) int {
 	defer ln.Close()
 	return ln.Addr().(*net.TCPAddr).Port
 }
+
+func TestWebServerReloadSameAddr(t *testing.T) {
+	// 同地址热重载（模拟 HTTP↔HTTPS 切换）：新旧监听必须都能绑上，
+	// Linux 要求同端口的所有 socket 都设置 SO_REUSEPORT
+	dir := t.TempDir()
+	if _, err := config.LoadWebSettings(dir, 0, false); err != nil {
+		t.Fatalf("LoadWebSettings: %v", err)
+	}
+	h := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("ok"))
+	})
+	srv := NewWebServer(h)
+
+	p := freePort(t)
+	ws := config.WebSettings{Port: p, ListenAddr: "127.0.0.1"}
+	if err := srv.reload(ws); err != nil {
+		t.Fatalf("初始 reload: %v", err)
+	}
+	waitServe(t, p)
+
+	// 同地址再 reload 一次（TLS 开关切换走的就是这条路径）
+	if err := srv.ApplyWebSettings(ws); err != nil {
+		t.Fatalf("同地址 reload 失败（SO_REUSEPORT 未生效）: %v", err)
+	}
+	waitServe(t, p)
+}

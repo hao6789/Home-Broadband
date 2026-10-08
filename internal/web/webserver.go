@@ -143,7 +143,9 @@ func (s *webServer) reload(cfg config.WebSettings) error {
 		return nil
 	}
 
-	ln, err := bindNew(false)
+	// 初始监听也带 SO_REUSEPORT，否则同地址热重载时新监听 bind 会 EADDRINUSE
+	//（Linux 要求同端口的所有 socket 都设置 SO_REUSEPORT）
+	ln, err := bindNew(true)
 	if err != nil {
 		return fmt.Errorf("无法监听 %s：%w", addr, err)
 	}
