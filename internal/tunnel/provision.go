@@ -86,7 +86,7 @@ func (m *Manager) runProvision(job *job.Job, picks []vpngate.Node, templateID in
 		wg.Add(1)
 		go func(i int, t *Tunnel) {
 			defer wg.Done()
-			m.waitUp(t)
+			m.waitUp(t, job)
 			if t.GetStatus() == "up" {
 				job.Set(i, "ok", t.getExitIP())
 				return
@@ -134,10 +134,14 @@ func (m *Manager) runProvision(job *job.Job, picks []vpngate.Node, templateID in
 
 // waitUp 等一条隧道跑完 bringUp。bringUp 最多试 6 个候选节点，
 // 每个节点等 tun0 最长 40 秒，所以这里给足余量。
-func (m *Manager) waitUp(t *Tunnel) {
+func (m *Manager) waitUp(t *Tunnel, j *job.Job) {
 	const maxWait = 5 * time.Minute
 	deadline := time.Now().Add(maxWait)
 	for time.Now().Before(deadline) {
+		// 用户取消了就别等了，直接返回
+		if j != nil && j.Cancelled() {
+			return
+		}
 		if t.GetStatus() == "up" || t.GetStatus() == "failed" || t.GetStatus() == "stopped" {
 			return
 		}

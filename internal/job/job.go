@@ -163,6 +163,9 @@ func (s *JobStore) Cancel(id string) bool {
 		if j.id == id {
 			j.mu.Lock()
 			running := j.status == "running"
+			if running {
+				j.status = "cancelled"
+			}
 			j.mu.Unlock()
 			if running {
 				j.cancelOnce.Do(func() { close(j.cancelCh) })
