@@ -48,6 +48,10 @@ func main() {
 	if err := os.MkdirAll(*workDir, 0700); err != nil {
 		log.Fatalf("创建工作目录失败: %v", err)
 	}
+	// -dir 参数校验：与 install.sh 的 WORK_DIR 校验对齐
+	if *workDir == "" || (*workDir)[0] != '/' || len(*workDir) > 200 {
+		log.Fatal("-dir 须为非空绝对路径且不超过200字符")
+	}
 
 	// 打开统一配置存储（老版本散落的小文件会在这里一次性迁入 config.json）。
 	// 之后所有无 dir 参数的配置访问都走这份全局存储。
@@ -79,8 +83,9 @@ func main() {
 
 	tunnel.SetPublicIPOverride(*publicIP)
 	go tunnel.HostPublicIP() // 预热探测，别让首个请求阻塞
+	// PrepareHost 只是开 ip_forward，容器里失败是常见情况，降级运行不 Fatal
 	if err := tunnel.PrepareHost(); err != nil {
-		log.Fatal(err)
+		log.Printf("警告: PrepareHost 失败（容器环境常见），隧道功能可能受限: %v", err)
 	}
 
 	panel.ConfigurePanel(*workDir, *panelMode)

@@ -137,7 +137,7 @@ pkg_for() {
     openssl)  echo openssl ;;
     tar)      echo tar ;;
     python3)  case "$mgr" in apk) echo python3 ;; *) echo python3 ;; esac ;;
-    ip)       case "$mgr" in apk) echo iproute2 ;; pacman) echo iproute2 ;; *) echo iproute ;; esac ;;
+    ip)       case "$mgr" in apk|pacman|zypper) echo iproute2 ;; *) echo iproute ;; esac ;;
     iptables) echo iptables ;;
     unzip)    echo unzip ;;
   esac
@@ -279,11 +279,12 @@ sysctl -qw net.ipv4.ip_forward=1 2>/dev/null || echo "警告: 无法设置 ip_fo
 grep -q '^net.ipv4.ip_forward=1' /etc/sysctl.conf 2>/dev/null \
   || echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.conf
 # FORWARD 链常有兜底 REJECT，home-broadband 用的网段要插到最前面
+# （容器/无特权环境可能失败，给警告不中断安装）
 if ! iptables -C FORWARD -s 10.99.0.0/16 -j ACCEPT 2>/dev/null; then
-  iptables -I FORWARD 1 -s 10.99.0.0/16 -j ACCEPT
+  iptables -I FORWARD 1 -s 10.99.0.0/16 -j ACCEPT 2>/dev/null || echo "警告: iptables 规则添加失败（容器环境常见）" >&2
 fi
 if ! iptables -C FORWARD -d 10.99.0.0/16 -j ACCEPT 2>/dev/null; then
-  iptables -I FORWARD 1 -d 10.99.0.0/16 -j ACCEPT
+  iptables -I FORWARD 1 -d 10.99.0.0/16 -j ACCEPT 2>/dev/null || echo "警告: iptables 规则添加失败（容器环境常见）" >&2
 fi
 command -v netfilter-persistent >/dev/null && netfilter-persistent save >/dev/null 2>&1 || true
 # RHEL 系用 iptables-services 持久化；都没有就告警，重启后规则会丢

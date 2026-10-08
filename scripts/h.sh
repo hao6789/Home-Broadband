@@ -207,7 +207,8 @@ list_tunnels() {
   echo
   curl -s --max-time 10 -b "$ck" "http://127.0.0.1:${port}${bp}/api/tunnels" \
     > "$ck.json" 2>/dev/null
-  rm -f "$ck"
+  rm -f "$ck" "$ck.json"
+  trap - RETURN INT TERM
 
   # 用 sed/awk 解析而不是 python3/jq：Alpine 最小安装两者都没有，
   # 为了一条列表命令再拉依赖不值当。字段固定，按对象拆行足够稳。
@@ -255,8 +256,11 @@ change_port() {
     fi
   fi
   svc_reload
-  svc_restart
-  echo -e "  ${G}已改为 ${new} 并重启${N}"
+  if svc_restart; then
+    echo -e "  ${G}已改为 ${new} 并重启${N}"
+  else
+    echo -e "  ${R}配置已改但服务重启失败，请手动检查${N}"
+  fi
 }
 
 reset_password() {
