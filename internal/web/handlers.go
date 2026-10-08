@@ -187,6 +187,7 @@ func apiSettings(auth *Auth, srv *webServer) http.HandlerFunc {
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
+			r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 			var in settingsReq
 			if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "请求格式错误"})
@@ -401,6 +402,7 @@ func apiXUIStatus(w http.ResponseWriter, r *http.Request) {
 func apiPanelMode(m *tunnel.Manager, workDir string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
+			r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 			var in struct {
 				Mode string `json:"mode"`
 			}

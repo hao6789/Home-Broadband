@@ -217,6 +217,8 @@ func (a *Auth) handleLogin(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(loginHTML))
 		return
 	}
+	// 限流请求体防 DoS：登录表单 64KB 绰绰有余
+	r.Body = http.MaxBytesReader(w, r.Body, 64<<10)
 	ip := clientIP(r)
 	if a.blocked(ip) {
 		writeJSON(w, http.StatusTooManyRequests, map[string]string{"error": "登录失败次数过多，请稍后再试"})

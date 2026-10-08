@@ -70,11 +70,28 @@ func randomShortID() string {
 	return hex.EncodeToString(b)
 }
 
+// validServerName 校验域名/IP 格式，防止特殊字符污染 openssl 参数。
+func validServerName(s string) bool {
+	if s == "" || len(s) > 253 {
+		return false
+	}
+	for _, c := range s {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' ||
+			c >= '0' && c <= '9' || c == '.' || c == '-' || c == '_') {
+			return false
+		}
+	}
+	return true
+}
+
 // selfSignedCert 生成一张自签证书，用于没有真实域名时也能开 TLS。
 //
 // 走 openssl 而不是 Go 的 crypto/x509：证书要落成 Xray 能读的 PEM 文件，
 // openssl 一条命令就够，省掉一大段编解码代码。
 func selfSignedCert(dir, serverName string) (certFile, keyFile string, err error) {
+	if !validServerName(serverName) {
+		return "", "", fmt.Errorf("无效的 serverName %q", serverName)
+	}
 	certDir := filepath.Join(dir, "certs")
 	if err := os.MkdirAll(certDir, 0700); err != nil {
 		return "", "", err

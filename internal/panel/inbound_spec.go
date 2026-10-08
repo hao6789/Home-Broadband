@@ -61,6 +61,8 @@ func normalizeInboundSpec(spec NewInboundSpec, used map[int]bool) (*normalizedSp
 			return nil, err
 		}
 		port = p
+	} else if port < 1 || port > 65535 {
+		return nil, fmt.Errorf("端口 %d 超出范围（1-65535）", port)
 	} else if used[port] {
 		return nil, fmt.Errorf("端口 %d 已被别的入站占用", port)
 	}
