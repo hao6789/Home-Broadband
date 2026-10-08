@@ -688,6 +688,10 @@ func apiInboundUpdate(m *tunnel.Manager) http.HandlerFunc {
 		}
 		if q.Has("remark") {
 			remark := q.Get("remark")
+			if len(remark) > 200 {
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": "备注太长（最多200字符）"})
+				return
+			}
 			patch.Remark = &remark
 		}
 		if v := q.Get("enable"); v != "" {
@@ -722,7 +726,12 @@ func clientAction(m *tunnel.Manager, what string,
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "id 参数无效"})
 			return
 		}
-		err = do(p, id, r.URL.Query().Get("email"), m.Tunnels())
+		email := r.URL.Query().Get("email")
+		if len(email) > 200 {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "email 太长（最多200字符）"})
+			return
+		}
+		err = do(p, id, email, m.Tunnels())
 		tunnel.InvalidateInbounds()
 		if err != nil {
 			writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})

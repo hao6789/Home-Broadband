@@ -386,6 +386,9 @@ func (s *Store) CurrentBasePath() string {
 func (s *Store) SetBasePath(raw string) (string, error) {
 	bp := normalizeBasePath(raw)
 	if bp != "" {
+		if len(bp) > 100 {
+			return "", fmt.Errorf("访问路径太长（最多100字符）")
+		}
 		// 用户手填的路径放宽到任意字母数字加 - _，不套用自动生成时刻意避开的
 		// 易混字符集（那套是给随机生成用的）。
 		for _, c := range strings.TrimPrefix(bp, "/") {
