@@ -13,40 +13,64 @@ G='\033[0;32m'; R='\033[0;31m'; Y='\033[0;33m'; B='\033[0;36m'; D='\033[2m'; N='
 # 散文件（settings.json/password/basepath）已废弃，只在迁移时读一次。
 CFG="$WORK_DIR/config.json"
 
-cfg_get() { # cfg_get <key>：读顶层字段
-  python3 -c "import json; print(json.load(open('$CFG')).get('$1',''))" 2>/dev/null
+cfg_get() { # cfg_get <key>：读顶层字段，失败返回非零
+  local out rc
+  out=$(python3 -c "import json; print(json.load(open('$CFG')).get('$1',''))" 2>&1); rc=$?
+  if (( rc != 0 )); then
+    echo "  读配置失败 (${CFG}): $(tail -n1 <<<"$out")" >&2
+    return 1
+  fi
+  printf '%s\n' "$out"
 }
-cfg_get_web() { # cfg_get_web <key>：读 web 段字段
-  python3 -c "import json; print(json.load(open('$CFG')).get('web',{}).get('$1',''))" 2>/dev/null
+cfg_get_web() { # cfg_get_web <key>：读 web 段字段，失败返回非零
+  local out rc
+  out=$(python3 -c "import json; print(json.load(open('$CFG')).get('web',{}).get('$1',''))" 2>&1); rc=$?
+  if (( rc != 0 )); then
+    echo "  读配置失败 (${CFG}): $(tail -n1 <<<"$out")" >&2
+    return 1
+  fi
+  printf '%s\n' "$out"
 }
-cfg_set() { # cfg_set <key> <value>：写顶层字段（字符串）
-  python3 - "$CFG" "$1" "$2" <<'PY' 2>/dev/null
+cfg_set() { # cfg_set <key> <value>：写顶层字段（字符串），失败返回非零
+  local out rc
+  out=$(python3 - "$CFG" "$1" "$2" <<'PY' 2>&1
 import json, sys
 f, k, v = sys.argv[1], sys.argv[2], sys.argv[3]
 d = json.load(open(f))
 d[k] = v
 json.dump(d, open(f, 'w'), indent=2)
 PY
+); rc=$?
+  if (( rc != 0 )); then
+    echo "  写配置失败 (${CFG}): $(tail -n1 <<<"$out")" >&2
+    return 1
+  fi
   chmod 600 "$CFG"
 }
-cfg_set_web() { # cfg_set_web <key> <value>：写 web 段字段
-  local k="$1" v="$2"
+cfg_set_web() { # cfg_set_web <key> <value>：写 web 段字段，失败返回非零
+  local k="$1" v="$2" out rc
   if [[ $v =~ ^[0-9]+$ ]]; then
-    python3 - "$CFG" "$k" "$v" <<'PY' 2>/dev/null
+    out=$(python3 - "$CFG" "$k" "$v" <<'PY' 2>&1
 import json, sys
 f, k, v = sys.argv[1], sys.argv[2], int(sys.argv[3])
 d = json.load(open(f))
 d.setdefault('web', {})[k] = v
 json.dump(d, open(f, 'w'), indent=2)
 PY
+); rc=$?
   else
-    python3 - "$CFG" "$k" "$v" <<'PY' 2>/dev/null
+    out=$(python3 - "$CFG" "$k" "$v" <<'PY' 2>&1
 import json, sys
 f, k, v = sys.argv[1], sys.argv[2], sys.argv[3]
 d = json.load(open(f))
 d.setdefault('web', {})[k] = v
 json.dump(d, open(f, 'w'), indent=2)
 PY
+); rc=$?
+  fi
+  if (( rc != 0 )); then
+    echo "  写配置失败 (${CFG}): $(tail -n1 <<<"$out")" >&2
+    return 1
   fi
   chmod 600 "$CFG"
 }
@@ -59,9 +83,12 @@ need_root() {
 if command -v systemctl >/dev/null 2>&1 && [[ -d /run/systemd/system ]]; then
   INIT_SYS=systemd
   UNIT=/etc/systemd/system/${SERVICE}.service
-else
+elif command -v rc-service >/dev/null 2>&1; then
   INIT_SYS=openrc
   UNIT=/etc/init.d/${SERVICE}
+else
+  echo -e "${R}不认识的 init 系统（需要 systemd 或 OpenRC）${N}" >&2
+  exit 1
 fi
 
 svc_start()   { [[ $INIT_SYS == systemd ]] && systemctl start "$SERVICE"   || rc-service "$SERVICE" start; }
@@ -209,7 +236,16 @@ change_port() {
   # 写 config.json 的 web.port（权威来源），并把服务文件里可能残留的 -web 一并同步，
   # 免得老安装重启后又被写死的旧端口拽回去。
   cfg_set_web port "$new"
-  sed -i "s/-web ${cur}/-web ${new}/" "$UNIT" 2>/dev/null
+  # sed 直接改服务文件：先备份，失败恢复
+  if [[ -n ${UNIT:-} && -f $UNIT ]]; then
+    cp -f "$UNIT" "$UNIT.bak" 2>/dev/null
+    if sed -i "s/-web ${cur}/-web ${new}/" "$UNIT" 2>/dev/null; then
+      rm -f "$UNIT.bak"
+    else
+      mv -f "$UNIT.bak" "$UNIT" 2>/dev/null
+      echo -e "  ${Y}服务文件更新失败，已恢复原文件${N}"
+    fi
+  fi
   svc_reload
   svc_restart
   echo -e "  ${G}已改为 ${new} 并重启${N}"
@@ -218,7 +254,8 @@ change_port() {
 reset_password() {
   local pw
   echo
-  read -rp "  新口令 (留空则随机生成): " pw
+  read -rsp "  新口令 (留空则随机生成): " pw
+  echo
   if [[ -z $pw ]]; then
     pw=$(head -c 9 /dev/urandom | od -An -tx1 | tr -d ' \n')
   fi
@@ -437,6 +474,10 @@ cert_revoke() {
   echo "  已有域名："; echo "$domains" | sed 's/^/    /'
   read -rp "  输入要吊销的域名: " domain
   [[ -z $domain ]] && { echo "  已取消"; return; }
+  # domain 直接拼进 rm -rf 路径，严格校验防止路径逃逸
+  if [[ $domain == *".."* || $domain == /* || $domain == *~* || ! $domain =~ ^[A-Za-z0-9.-]+$ ]]; then
+    echo -e "  ${R}域名不合法${N}"; return
+  fi
   read -rp "  确认吊销 ${domain} 的证书？[y/N]: " yes
   [[ ${yes,,} == y ]] || { echo "  已取消"; return; }
   "$ACME_BIN" --revoke -d "$domain" 2>/dev/null
@@ -512,30 +553,41 @@ do_update() {
   fi
 
   echo -e "\n  当前 $("$BIN" -version 2>/dev/null || echo '-')"
+  # 版本比较：已是最新就跳过，避免无意义的重装重启
+  latest_ver=$(curl -fsSL --max-time 15 "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null \
+    | python3 -c "import json,sys; print(json.load(sys.stdin).get('tag_name',''))" 2>/dev/null)
+  cur_ver=$("$BIN" -version 2>/dev/null | awk '{print $2}')
+  if [[ -n $latest_ver && -n $cur_ver && $cur_ver == "$latest_ver" ]]; then
+    echo -e "  ${G}已是最新版 ${latest_ver}，无需更新${N}"; return
+  fi
   tmp=$(mktemp -d)
+  trap 'rm -rf "$tmp"' RETURN
   echo "  正在下载最新版..."
   arch="home-broadband-linux-${goarch}.tar.gz"
   if ! curl -fsSL "https://github.com/${REPO}/releases/latest/download/${arch}" \
        -o "$tmp/f.tar.gz"; then
-    echo -e "  ${R}下载失败${N}"; rm -rf "$tmp"; return
+    echo -e "  ${R}下载失败${N}"; return
   fi
   # 校验 checksums.txt，防止装上损坏/被篡改的包
   if ! curl -fsSL "https://github.com/${REPO}/releases/latest/download/checksums.txt" \
        -o "$tmp/checksums.txt"; then
-    echo -e "  ${R}下载校验文件失败，拒绝安装${N}"; rm -rf "$tmp"; return
+    echo -e "  ${R}下载校验文件失败，拒绝安装${N}"; return
   fi
   want=$(grep "  ${arch}$" "$tmp/checksums.txt" | awk '{print $1}')
   got=$(sha256sum "$tmp/f.tar.gz" | awk '{print $1}')
   if [ -z "$want" ] || [ "$want" != "$got" ]; then
-    echo -e "  ${R}校验失败，拒绝安装${N}"; rm -rf "$tmp"; return
+    echo -e "  ${R}校验失败，拒绝安装${N}"; return
   fi
   if ! tar xzf "$tmp/f.tar.gz" -C "$tmp"; then
-    echo -e "  ${R}解压失败${N}"; rm -rf "$tmp"; return
+    echo -e "  ${R}解压失败${N}"; return
   fi
   svc_stop
+  # 备份旧二进制，出问题可手动恢复
+  [[ -x $BIN ]] && cp -f "$BIN" "$BIN.bak"
   install -m 755 "$tmp/home-broadband" "$BIN"
   migrate_port_to_settings
   svc_start
+  trap - RETURN
   rm -rf "$tmp"
   echo -e "  ${G}已更新到 $("$BIN" -version 2>/dev/null)${N}"
 }

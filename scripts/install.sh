@@ -12,6 +12,16 @@ WEB_PORT="${WEB_PORT:-8899}"
 WORK_DIR="${WORK_DIR:-/var/lib/home-broadband}"
 BIN=/usr/local/bin/home-broadband
 
+# WORK_DIR 校验：非空、绝对路径、不含换行（后面要拼进 python/sed/heredoc）
+if [[ -z $WORK_DIR || $WORK_DIR != /* || $WORK_DIR == *$'\n'* ]]; then
+  echo "WORK_DIR 不合法（须为非空绝对路径且不含换行）: ${WORK_DIR}" >&2
+  exit 1
+fi
+
+# 临时目录统一走 EXIT trap 清理，set -e 中途退出也不残留
+TMP=""; XT=""
+trap 'rm -rf "$TMP" "$XT"' EXIT
+
 if [[ $EUID -ne 0 ]]; then
   echo "需要 root 权限（要创建 netns 和改 iptables）" >&2
   exit 1
@@ -37,7 +47,7 @@ seed_settings() {
   # 已有 config.json：直接沿用里面的端口（除非显式指定了新的）
   if [[ -f "${WORK_DIR}/config.json" && -z "${WEB_PORT_EXPLICIT:-}" ]]; then
     local cur
-    cur=$(python3 -c "import json; print(json.load(open('${WORK_DIR}/config.json')).get('web',{}).get('port',''))" 2>/dev/null)
+    cur=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]+'/config.json')).get('web',{}).get('port',''))" "$WORK_DIR" 2>/dev/null)
     [[ -n $cur ]] && { WEB_PORT="$cur"; return; }
   fi
   # 全新安装：写 settings.json，首次启动时自动迁移进 config.json
@@ -193,7 +203,7 @@ else
   install -m 755 "$TMP/home-broadband" "$BIN"
   [[ -f deploy/home-broadband.service ]] || { mkdir -p deploy && cp "$TMP/deploy/home-broadband.service" deploy/; }
   [[ -f "$TMP/scripts/h.sh" ]] && install -m 755 "$TMP/scripts/h.sh" /usr/local/bin/h
-  rm -rf "$TMP"
+  # TMP 由 EXIT trap 统一清理，这里不删：后面步骤 5 还要用它找 h.sh
 fi
 
 echo "[3/6] 准备 Xray"
@@ -231,7 +241,7 @@ else
   else
     echo "      下载失败，自建模式不可用（装了 3x-ui 则不受影响）" >&2
   fi
-  rm -rf "$XT"
+  # XT 由 EXIT trap 统一清理
 fi
 
 echo "[4/6] 放行转发"
