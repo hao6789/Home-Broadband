@@ -270,7 +270,8 @@ func downloadFile(url, dst string) error {
 		return err
 	}
 	defer f.Close()
-	_, err = io.Copy(f, resp.Body)
+	// 限 100MB：tarball 正常约 15MB，防投毒/劫持导致磁盘写爆
+	_, err = io.Copy(f, io.LimitReader(resp.Body, 100<<20))
 	return err
 }
 

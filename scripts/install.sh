@@ -253,6 +253,10 @@ else
   XT=$(mktemp -d)
   XURL="https://github.com/XTLS/Xray-core/releases/latest/download/${XRAY_ASSET}"
   if curl -fsSL "$XURL" -o "$XT/x.zip"; then
+    # 基本完整性检查：zip 文件头魔数
+    if ! head -c 2 "$XT/x.zip" | grep -q "^PK"; then
+      echo "      Xray 下载文件损坏（非 zip 格式）" >&2
+    else
     # 只为解一个 zip 装 unzip 有点重，busybox 环境常自带
     if command -v unzip >/dev/null; then
       unzip -qo "$XT/x.zip" -d "$XT"
@@ -267,6 +271,7 @@ else
       echo "      $("${WORK_DIR}/bin/xray" version 2>/dev/null | head -1)"
     else
       echo "      解压失败，自建模式不可用（装了 3x-ui 则不受影响）" >&2
+    fi
     fi
   else
     echo "      下载失败，自建模式不可用（装了 3x-ui 则不受影响）" >&2

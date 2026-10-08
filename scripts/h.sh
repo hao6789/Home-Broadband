@@ -21,7 +21,11 @@ CFG="$WORK_DIR/config.json"
 
 cfg_get() { # cfg_get <key>：读顶层字段，失败返回非零
   local out rc
-  out=$(python3 -c "import json; print(json.load(open('$CFG')).get('$1',''))" 2>&1); rc=$?
+  out=$(python3 - "$CFG" "$1" <<'PY' 2>&1
+import json, sys
+print(json.load(open(sys.argv[1])).get(sys.argv[2],''))
+PY
+); rc=$?
   if (( rc != 0 )); then
     echo "  读配置失败 (${CFG}): $(tail -n1 <<<"$out")" >&2
     return 1
@@ -30,7 +34,11 @@ cfg_get() { # cfg_get <key>：读顶层字段，失败返回非零
 }
 cfg_get_web() { # cfg_get_web <key>：读 web 段字段，失败返回非零
   local out rc
-  out=$(python3 -c "import json; print(json.load(open('$CFG')).get('web',{}).get('$1',''))" 2>&1); rc=$?
+  out=$(python3 - "$CFG" "$1" <<'PY' 2>&1
+import json, sys
+print(json.load(open(sys.argv[1])).get('web',{}).get(sys.argv[2],''))
+PY
+); rc=$?
   if (( rc != 0 )); then
     echo "  读配置失败 (${CFG}): $(tail -n1 <<<"$out")" >&2
     return 1
@@ -282,7 +290,11 @@ json.dump(d, open(f, 'w'), indent=2)
 PY
   chmod 600 "$CFG"
   svc_restart
+  if (( $? == 0 )); then
   echo -e "  ${G}新口令: ${pw}${N}"
+  else
+    echo -e "  ${R}口令已改但服务重启失败，请手动检查${N}"
+  fi
 }
 
 reset_basepath() {
@@ -640,9 +652,12 @@ do_uninstall() {
     ip link del "$l" 2>/dev/null
   done
   # 删掉安装时加的 iptables FORWARD 规则（persist 的那份也清）
-  for dir in "-s" "-d"; do
-    while iptables -C FORWARD $dir 10.99.0.0/16 -j ACCEPT 2>/dev/null; do
-      iptables -D FORWARD $dir 10.99.0.0/16 -j ACCEPT 2>/dev/null
+  # 默认 10.99.0.0/16，自定义 WORK_DIR 用 10.<base>.0.0/16（base 见 instance.go）
+  for net in "10.99.0.0/16" $(iptables-save 2>/dev/null | grep -oP '10\.\d+\.0\.0/16' | sort -u); do
+    for dir in "-s" "-d"; do
+      while iptables -C FORWARD $dir $net -j ACCEPT 2>/dev/null; do
+        iptables -D FORWARD $dir $net -j ACCEPT 2>/dev/null
+      done
     done
   done
   command -v netfilter-persistent >/dev/null && netfilter-persistent save >/dev/null 2>&1 || true
