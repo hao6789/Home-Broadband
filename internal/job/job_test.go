@@ -47,3 +47,32 @@ func TestJobCancelIdempotent(t *testing.T) {
 		t.Errorf("Finish 不应覆盖 cancelled，实际 %s", v.Status)
 	}
 }
+
+func TestJobStoreCancel(t *testing.T) {
+	s := &JobStore{}
+	j := s.New("test", nil)
+	id := j.View().ID
+
+	// Store.Cancel 应设置 status 为 cancelled
+	if !s.Cancel(id) {
+		t.Fatalf("Cancel 运行中的作业应返回 true")
+	}
+	if v := j.View(); v.Status != "cancelled" {
+		t.Errorf("Cancel 后状态 = %s, want cancelled", v.Status)
+	}
+	if !j.Cancelled() {
+		t.Errorf("Cancel 后 Cancelled 应为 true")
+	}
+
+	// 已结束的作业 Cancel 应返回 false
+	j2 := s.New("test2", nil)
+	j2.Finish()
+	if s.Cancel(j2.View().ID) {
+		t.Errorf("Cancel 已结束的作业应返回 false")
+	}
+
+	// 不存在的 id 返回 false
+	if s.Cancel("nonexistent") {
+		t.Errorf("Cancel 不存在的 id 应返回 false")
+	}
+}

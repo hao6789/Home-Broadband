@@ -91,6 +91,11 @@ func (m *Manager) runProvision(job *job.Job, picks []vpngate.Node, templateID in
 				job.Set(i, "ok", t.getExitIP())
 				return
 			}
+			// 取消导致的返回直接标"已取消"，别用空的错误文案
+			if job.Cancelled() {
+				job.Set(i, "failed", "已取消")
+				return
+			}
 			job.Set(i, "failed", FirstLine(t.getErr()))
 		}(i, t)
 	}
