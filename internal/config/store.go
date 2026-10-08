@@ -449,6 +449,25 @@ func (s *Store) ValidSession(tok string) bool {
 	return ok && time.Now().Before(exp)
 }
 
+// DeleteSession 删除一个登录会话（登出），不存在也算成功。
+func (s *Store) DeleteSession(tok string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.doc.Sessions == nil {
+		return nil
+	}
+	delete(s.doc.Sessions, tok)
+	return s.saveLocked()
+}
+
+// ClearSessions 清掉所有登录会话（改口令后踢掉所有人）。
+func (s *Store) ClearSessions() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.doc.Sessions = map[string]time.Time{}
+	return s.saveLocked()
+}
+
 // ---- 面板模式 ----
 
 // PanelMode 返回界面选过的后端（3x-ui/native），空表示自动探测。

@@ -40,6 +40,7 @@ func RegisterRoutes(mux *http.ServeMux, mgr *tunnel.Manager, workDir string, aut
 	mux.HandleFunc("/sub", handleSub(mgr))
 	// 设置面板：改密码 / 改路径 / 改端口 / 改本地监听。
 	mux.HandleFunc("/api/settings", apiSettings(auth, srv))
+	mux.HandleFunc("/api/logout", auth.Logout)
 	mux.HandleFunc("/api/update/check", apiUpdateCheck)
 	mux.HandleFunc("/api/update/apply", apiUpdateApply)
 	mux.HandleFunc("/api/restart", apiRestart)

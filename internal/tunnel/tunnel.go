@@ -332,7 +332,11 @@ func (t *Tunnel) startOpenVPN(dir string) error {
 	t.mu.Lock()
 	t.ovpn = cmd
 	t.mu.Unlock()
-	go cmd.Wait() // 回收子进程，避免僵尸
+	done := make(chan struct{})
+	go func() {
+		cmd.Wait() // 回收子进程，避免僵尸
+		close(done)
+	}()
 
 	// openvpn 建好 tun0 前 SOCKS5 无法正常出网，这里等它就绪
 	deadline := time.Now().Add(40 * time.Second)
@@ -342,8 +346,10 @@ func (t *Tunnel) startOpenVPN(dir string) error {
 				return nil
 			}
 		}
-		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+		select {
+		case <-done:
 			return fmt.Errorf("openvpn 提前退出，详见 %s", logPath)
+		default:
 		}
 		time.Sleep(time.Second)
 	}

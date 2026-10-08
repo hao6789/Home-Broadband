@@ -18,8 +18,10 @@ const (
 // VPN Gate 是志愿者节点，运行中掉线很常见。
 func (m *Manager) WatchHealth() {
 	fails := map[int]int{}
+	ticker := time.NewTicker(healthInterval)
+	defer ticker.Stop()
 
-	for range time.Tick(healthInterval) {
+	for range ticker.C {
 		for _, t := range m.Tunnels() {
 			if t.GetStatus() != "up" {
 				continue

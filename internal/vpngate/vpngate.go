@@ -121,7 +121,8 @@ func fetchNodesFrom(url, key string, timeout time.Duration) ([]Node, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("拉取节点列表失败: HTTP %d", resp.StatusCode)
 	}
-	raw, err := io.ReadAll(resp.Body)
+	// 限 32MB，防恶意服务端返回超大 body 撑爆内存
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
 	if err != nil {
 		return nil, fmt.Errorf("读取节点列表失败: %w", err)
 	}

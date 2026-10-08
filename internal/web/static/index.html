@@ -90,6 +90,8 @@ body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);
 
 /* ===== 布局 ===== */
 .app{display:flex;min-height:100vh}
+#offlineBar{position:fixed;top:0;left:0;right:0;z-index:99;text-align:center;
+  background:#7a2e2e;color:#ffd9d9;font-size:13px;padding:7px 12px}
 .side{width:226px;flex:none;background:var(--side);border-right:1px solid var(--border);
   display:flex;flex-direction:column;position:sticky;top:0;height:100vh;z-index:30}
 .brand{display:flex;align-items:center;gap:10px;padding:18px 16px;font-weight:700;font-size:15px;letter-spacing:.2px}
@@ -347,6 +349,7 @@ label.f>span,div.f>span{display:block;color:var(--dim);font-size:12px;margin-bot
 </style>
 </head>
 <body>
+<div id="offlineBar" hidden>连接断开，正在重试…</div>
 <div class="app">
   <aside class="side">
     <div class="brand">
@@ -369,6 +372,10 @@ label.f>span,div.f>span{display:block;color:var(--dim);font-size:12px;margin-bot
       <button data-view="settings">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
         <span class="nlbl">设置</span>
+      </button>
+      <button id="navLogout" title="退出登录">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+        <span class="nlbl">退出</span>
       </button>
     </nav>
     <div class="side-foot">
@@ -805,6 +812,11 @@ document.querySelector('.nav').addEventListener('click', e => {
   const b = e.target.closest('[data-view]');
   if(b) switchView(b.dataset.view);
 });
+$('#navLogout').addEventListener('click', async () => {
+  if(!confirm('确定退出登录？')) return;
+  try{ await api('/api/logout', {method: 'POST'}); }catch(e){}
+  location.reload();
+});
 (function(){
   let v = 'dash';
   try{ v = localStorage.getItem('hb-view') || 'dash'; }catch(e){}
@@ -937,7 +949,7 @@ function renderExits(){
     const place = esc(e.country || e.region || '—');
     return '<div class="exit">'
       + '<div class="etop">'
-      +   '<span class="dot ' + e.status + '" title="' + (STATUS[e.status] || e.status) + '"></span>'
+      +   '<span class="dot ' + e.status + '" title="' + esc(STATUS[e.status] || e.status) + '"></span>'
       +   '<span class="ip">' + place + '</span>'
       +   '<span class="meta mono">' + esc(label) + ' · ' + esc(e.host) + '</span>'
       +   '<span class="spacer"></span>'
@@ -1004,7 +1016,7 @@ function renderNodes(){
       + '<span class="count">' + exits.length + ' 个出口 · ' + nn + ' 个节点</span></div>'
       + exits.map(e =>
           '<div class="rgexit"><div class="rgexit-head">'
-          + '<span class="dot ' + e.status + '" title="' + (STATUS[e.status] || e.status) + '"></span>'
+          + '<span class="dot ' + e.status + '" title="' + esc(STATUS[e.status] || e.status) + '"></span>'
           + '<span class="mono">' + esc(e.exit_ip || e.host) + '</span>'
           + '<span class="dim small">SOCKS5 :' + e.port + '</span>'
           + '</div>'
@@ -1061,6 +1073,7 @@ async function poll(){
   polling = true;
   try{
     view = await api('/api/exits');
+    $('#offlineBar').hidden = true; // 恢复连接，藏起断网横条
     const bn = backendName();
     const pn = view.panel || '';
     $('#panel').textContent = pn
@@ -1074,6 +1087,7 @@ async function poll(){
     if(!bindOpen) renderNodes();
   }catch(e){
     console.warn('poll /api/exits 失败:', e && e.message || e);
+    $('#offlineBar').hidden = false; // 显示断网横条
   }finally{
     polling = false;
   }
@@ -1524,7 +1538,8 @@ document.addEventListener('change', async e => {
   }catch(err){ toast(err.message, true); }
   finally{
     pendingBinds.delete(tag);
-    poll();
+    await poll(); // 等最新数据回来
+    if(curDetail) renderDetail(curDetail); // 刷新弹窗内的绑定显示
   }
 });
 
@@ -1740,13 +1755,16 @@ async function loadBackendModes(){
   }
 }
 
+let settingsSeq = 0;
 async function loadSettings(){
+  const seq = ++settingsSeq;
   $('#setPw').value = '';
   $('#setPath').value = '';
   $('#setPathHint').textContent = '读取中…';
   loadBackendModes();
   try{
     const s = await api('/api/settings');
+    if(seq !== settingsSeq) return; // 旧响应丢弃：用户已切走又切回来
     curSettings = s;
     $('#setPath').value = (s.base_path || '').replace(/^\//, '');
     $('#setPort').value = s.port || '';
@@ -1772,7 +1790,10 @@ async function loadSettings(){
     $('#updApply').hidden = true;
     $('#updCheck').disabled = false;
     $('#updCheck').textContent = '检查更新';
-  }catch(err){ $('#setPathHint').textContent = '读取失败: ' + err.message; }
+  }catch(err){
+    if(seq !== settingsSeq) return;
+    $('#setPathHint').textContent = '读取失败: ' + err.message;
+  }
 };
 
 // 检查更新：问后端 GitHub 最新版，有新版就亮出更新按钮和更新内容

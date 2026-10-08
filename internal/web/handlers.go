@@ -269,7 +269,9 @@ func apiUpdateApply(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "restarting": false, "message": "已经是最新版"})
 		return
 	}
-	if err := applyUpdate(); err != nil {
+	// 把 checkUpdate 拿到的 release 传进去，避免 applyUpdate 再调一次 API
+	//（省配额，也避免两次查询之间 release 变化的 TOCTOU）
+	if err := applyUpdateWithRelease(st.Release); err != nil {
 		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 		return
 	}

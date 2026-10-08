@@ -81,8 +81,12 @@ func (m *Manager) RestoreState() (int, error) {
 	}
 
 	// 从当前节点列表补回地区、延迟等元数据；节点已下线时退回存盘的最小信息
+	m.mu.RLock()
+	nodes := make([]vpngate.Node, len(m.nodes))
+	copy(nodes, m.nodes)
+	m.mu.RUnlock()
 	known := map[string]vpngate.Node{}
-	for _, n := range m.nodes {
+	for _, n := range nodes {
 		known[n.HostName] = n
 	}
 

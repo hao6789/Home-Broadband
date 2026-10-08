@@ -42,6 +42,8 @@ type UpdateStatus struct {
 	HasUpdate bool   `json:"has_update"`
 	Notes     string `json:"notes"`
 	URL       string `json:"url"`
+	// Release 是 checkUpdate 时拿到的完整 release，供 apply 时复用，避免二次请求
+	Release *releaseInfo `json:"-"`
 }
 
 // goarch 把 runtime.GOARCH 映射成 release 资产用的名字。
@@ -96,12 +98,14 @@ func checkUpdate() (*UpdateStatus, error) {
 		Notes:     strings.TrimSpace(rel.Body),
 		URL:       rel.HTMLURL,
 		HasUpdate: versionLess(cur, latest),
+		Release:   rel,
 	}
 	return st, nil
 }
 
 // versionLess 判断 cur 是否比 latest 旧。解析 vX.Y.Z 做数值比较；
 // dev 或无法解析时保守认为"有更新"（让用户能装上正式版）。
+// latest 解析失败时返回 false：连最新版是什么都不知道，不触发更新。
 func versionLess(cur, latest string) bool {
 	if latest == "" {
 		return false
@@ -111,8 +115,11 @@ func versionLess(cur, latest string) bool {
 	}
 	cn, cok := parseSemver(cur)
 	ln, lok := parseSemver(latest)
-	if !cok || !lok {
-		return cur != latest
+	if !lok {
+		return false
+	}
+	if !cok {
+		return true
 	}
 	for i := 0; i < 3; i++ {
 		if cn[i] != ln[i] {
@@ -143,18 +150,13 @@ func parseSemver(v string) ([3]int, bool) {
 	return out, true
 }
 
-// applyUpdate 下载最新版对应架构的包、校验、替换当前二进制，然后重启服务。
+// applyUpdateWithRelease 下载指定 release 对应架构的包、校验、替换当前二进制，然后重启服务。
 // 成功后本进程会被 init 系统拉起成新版本，所以正常情况下这里返回后进程即被替换。
 var updateMu sync.Mutex
 
-func applyUpdate() error {
+func applyUpdateWithRelease(rel *releaseInfo) error {
 	updateMu.Lock()
 	defer updateMu.Unlock()
-
-	rel, err := fetchLatestRelease()
-	if err != nil {
-		return err
-	}
 
 	arch := assetArch()
 	assetName := fmt.Sprintf("home-broadband-linux-%s.tar.gz", arch)
@@ -207,8 +209,17 @@ func applyUpdate() error {
 	if err := copyFileMode(newBin, staged, 0755); err != nil {
 		return fmt.Errorf("写入新版本失败: %w", err)
 	}
+	// fsync 确保数据落盘后再 rename，掉电也不丢
+	if f, err := os.Open(staged); err == nil {
+		_ = f.Sync()
+		f.Close()
+	}
+	// 备份旧二进制，出问题可手动回滚
+	_ = os.Rename(self, self+".bak")
 	if err := os.Rename(staged, self); err != nil {
 		os.Remove(staged)
+		// 尝试恢复备份
+		_ = os.Rename(self+".bak", self)
 		return fmt.Errorf("替换二进制失败: %w", err)
 	}
 

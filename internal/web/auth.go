@@ -80,7 +80,8 @@ func (a *Auth) check(pw string) bool {
 }
 
 // SetPassword 改访问口令并落盘。空口令拒绝，避免误改成无密码裸奔。
-// 改完不动已有会话：当前登录的浏览器不会被踢，新登录才用新口令。
+// 改完清掉所有已有会话：口令泄露后换口令能把攻击者的会话一起踢掉，
+// 当前浏览器也需要重新登录。
 func (a *Auth) SetPassword(pw string) error {
 	pw = strings.TrimSpace(pw)
 	if pw == "" {
@@ -89,7 +90,26 @@ func (a *Auth) SetPassword(pw string) error {
 	if len(pw) < 4 {
 		return fmt.Errorf("口令至少 4 位")
 	}
-	return a.store.SetPassword(pw)
+	if err := a.store.SetPassword(pw); err != nil {
+		return err
+	}
+	return a.store.ClearSessions()
+}
+
+// Logout 销毁当前会话。
+func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
+	if c, err := r.Cookie(sessionCookie); err == nil {
+		_ = a.store.DeleteSession(c.Value)
+	}
+	// 清掉浏览器里的 cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookie,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		MaxAge:   -1,
+	})
+	writeJSON(w, http.StatusOK, map[string]string{"ok": "已退出"})
 }
 
 // issue 发一个会话 token。
