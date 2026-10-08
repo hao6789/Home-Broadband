@@ -232,6 +232,9 @@ func (m *Manager) tryCandidates(t *Tunnel, notify bool) bool {
 			}
 			return true
 		}
+		// tryNode 失败时杀掉可能已启动的 openvpn，防止孤儿进程
+		// （如 probeExitIP 超时但 VPN 已连通的情况）
+		t.killOpenVPN()
 		t.teardownNetns()
 	}
 	return false
@@ -269,7 +272,7 @@ func (m *Manager) tryNode(t *Tunnel) error {
 		t.killOpenVPN()
 		return errTunnelStopped
 	}
-	if t.listener == nil {
+	if !t.hasListener() {
 		if err := t.serve(); err != nil {
 			return err
 		}

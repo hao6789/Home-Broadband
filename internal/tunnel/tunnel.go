@@ -383,7 +383,9 @@ func (t *Tunnel) serve() error {
 		}
 		t.Port = port
 	}
+	t.mu.Lock()
 	t.listener = ln
+	t.mu.Unlock()
 	dial := dialerInNetns(t.nsName())
 
 	go func() {
@@ -440,6 +442,13 @@ func (t *Tunnel) stop() {
 	}
 	t.teardownNetns()
 	t.Status = "stopped"
+}
+
+// hasListener 线程安全地检查 listener 是否已创建
+func (t *Tunnel) hasListener() bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.listener != nil
 }
 
 // killOpenVPN 只杀 OpenVPN 进程，用于重连中途被停止时的清理
