@@ -24,7 +24,7 @@ type Job struct {
 	started time.Time
 	ended   time.Time
 	// cancelCh 关闭时表示用户取消，runProvision 循环会检查
-	cancelCh chan struct{}
+	cancelCh   chan struct{}
 	cancelOnce sync.Once
 }
 

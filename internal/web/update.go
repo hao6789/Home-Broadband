@@ -202,7 +202,12 @@ func applyUpdateWithRelease(rel *releaseInfo) error {
 	if err != nil {
 		return fmt.Errorf("定位当前程序失败: %w", err)
 	}
-	self, _ = filepath.EvalSymlinks(self)
+	// EvalSymlinks 失败时用原值，不吞错误导致 self 变空
+	if resolved, err := filepath.EvalSymlinks(self); err == nil {
+		self = resolved
+	} else {
+		log.Printf("解析程序路径符号链接失败，用原路径: %v", err)
+	}
 
 	// 原子替换：先写到同目录临时文件再 rename，避免替一半崩了留下坏二进制
 	staged := self + ".new"

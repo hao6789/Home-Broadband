@@ -296,4 +296,4 @@ func TestE2EUpdatePort(t *testing.T) {
 }
 
 func boolPtr(b bool) *bool { return &b }
-func intPtr(i int) *int   { return &i }
+func intPtr(i int) *int    { return &i }

@@ -2,6 +2,7 @@ package panel
 
 import (
 	"fmt"
+	"log"
 	"net/url"
 	"os"
 	"strings"
@@ -504,7 +505,9 @@ func (n *Native) CreateInbound(spec NewInboundSpec, tunnels []*tunnel.Tunnel) (*
 		// 起不来就别把坏入站留在库里
 		n.store.Inbounds = n.store.Inbounds[:len(n.store.Inbounds)-1]
 		n.store.NextID--
-		_ = n.apply(tunnels)
+		if rerr := n.apply(tunnels); rerr != nil {
+			log.Printf("新建入站回滚失败，面板可能停在坏配置上: %v", rerr)
+		}
 		return nil, err
 	}
 	return &CreatedInbound{
