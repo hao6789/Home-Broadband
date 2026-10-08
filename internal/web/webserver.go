@@ -122,7 +122,12 @@ func (s *webServer) reload(cfg config.WebSettings) error {
 		}
 		_ = oldLn.Close()
 		s.mu.Lock()
-		srv := &http.Server{Handler: s.handler}
+		srv := &http.Server{
+			Handler:      s.handler,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  120 * time.Second,
+		}
 		s.srv = srv
 		s.ln = ln
 		s.addr = addr
@@ -151,7 +156,12 @@ func (s *webServer) reload(cfg config.WebSettings) error {
 	}
 
 	s.mu.Lock()
-	srv := &http.Server{Handler: s.handler}
+	srv := &http.Server{
+			Handler:      s.handler,
+			ReadTimeout:  30 * time.Second,
+			WriteTimeout: 30 * time.Second,
+			IdleTimeout:  120 * time.Second,
+		}
 	s.srv = srv
 	s.ln = ln
 	s.addr = addr
